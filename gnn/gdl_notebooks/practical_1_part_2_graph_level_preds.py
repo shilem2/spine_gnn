@@ -349,18 +349,18 @@ class GIN(nn.Module):
         # ============ YOUR CODE HERE =============
         # should be the same as before (an nn.ModuleList of GINLayers)
         # self.layers = ...
-        self.layers = [GINLayer(hidden_dim, hidden_dim, hidden_dim, eps) for _ in range(num_layers-1)]
-        self.layers += [GINLayer(hidden_dim, output_dim, hidden_dim, eps)]
+        self.layers = [GINLayer(hidden_dim, hidden_dim, hidden_dim, eps) for _ in range(num_layers)]
+        # self.layers += [GINLayer(hidden_dim, output_dim, hidden_dim, eps)]
         self.layers = nn.ModuleList(self.layers)
 
 
         # layer to compute prediction from the concatenated intermediate representations
         # self.pred_layers = ...
         # =========================================
-        self.pred_layers = [nn.Linear(input_dim, output_dim)]
+        # self.pred_layers = [nn.Linear(input_dim, output_dim)]
         # self.pred_layers += [nn.Linear(hidden_dim, output_dim) for _ in range(num_layers - 1)]
-        self.pred_layers += [nn.Linear(hidden_dim, output_dim) for _ in range(num_layers)]
-        # self.pred_layers = [nn.Linear(hidden_dim, output_dim) for _ in range(num_layers)]
+        # self.pred_layers += [nn.Linear(hidden_dim, output_dim) for _ in range(num_layers)]
+        self.pred_layers = [nn.Linear(hidden_dim, output_dim) for _ in range(num_layers + 1)]
         self.pred_layers = nn.ModuleList(self.pred_layers)
         # self.pred_layers = nn.Linear((num_layers-1) * hidden_dim, output_dim)
         self.drop = nn.Dropout(0.4)
@@ -376,13 +376,14 @@ class GIN(nn.Module):
 
         # ============ YOUR CODE HERE =============
         # perform the forward pass with the new readout function
-        hidden_rep = [graph.x.long(), x]
+        hidden_rep = [x]
         for i in range(self.num_layers):
             # x = ...
             x = self.layers[i](x, adj_sparse)
             x = F.relu(x)
             hidden_rep.append(x)
             pass
+        # x = self.layers[-1](x, adj_sparse)
 
         # loop over all x beside the last on
         ind = graph.batch
@@ -557,7 +558,7 @@ def main():
     BATCH_SIZE = 128  # @param {type:"integer"}
     NUM_EPOCHS = 30  # @param {type:"integer"}
     HIDDEN_DIM = 64  # @param {type:"integer"}
-    LR = 0.001  # @param {type:"number"}
+    LR = 0.0003  # @param {type:"number"}
 
     model_gin = GIN(input_dim=batch_zinc.x.size()[-1], output_dim=1, hidden_dim=HIDDEN_DIM, num_layers=4, eps=0.1)
     out, _ = model_gin(batch_zinc)
