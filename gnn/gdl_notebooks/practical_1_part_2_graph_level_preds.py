@@ -8,7 +8,7 @@ https://colab.research.google.com/drive/1Z0D10BFMdbsTM7lwPYrrJCe7z4yD48EE
 My copy:
 https://colab.research.google.com/drive/13m6BDOnouhyaw-CbjyBYwVDAjie8NqUx#scrollTo=EiuxXrwgmBE-&uniqifier=1
 """
-
+import dgl
 import numpy as np
 import seaborn as sns
 import math
@@ -363,7 +363,7 @@ class GIN(nn.Module):
         self.pred_layers = [nn.Linear(hidden_dim, output_dim) for _ in range(num_layers + 1)]
         self.pred_layers = nn.ModuleList(self.pred_layers)
         # self.pred_layers = nn.Linear((num_layers-1) * hidden_dim, output_dim)
-        self.drop = nn.Dropout(0.4)
+        self.drop = nn.Dropout(0.5)
 
         pass
 
@@ -388,7 +388,7 @@ class GIN(nn.Module):
         # loop over all x beside the last on
         ind = graph.batch
         score_over_layer = 0
-        for i in range(0, (self.num_layers)):
+        for i in range(0, (self.num_layers + 1)):
             h = hidden_rep[i]
             pooled_h = scatter_sum(h, ind, dim=0)
             hg = self.pred_layers[i](pooled_h)
@@ -422,6 +422,88 @@ class GIN(nn.Module):
         # return also the final node embeddings (for visualisations)
         return y_hat, x
 
+
+"""
+Copied from: https://github.com/dmlc/dgl/blob/master/examples/pytorch/gin/train.py
+"""
+
+import numpy as np
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
+
+from dgl.nn.pytorch.conv import GINConv
+from dgl.nn.pytorch.glob import SumPooling
+
+class MLP(nn.Module):
+    """Construct two-layer MLP-type aggreator for GIN model"""
+
+    def __init__(self, input_dim, hidden_dim, output_dim):
+        super().__init__()
+        self.linears = nn.ModuleList()
+        # two-layer MLP
+        self.linears.append(nn.Linear(input_dim, hidden_dim, bias=False))
+        self.linears.append(nn.Linear(hidden_dim, output_dim, bias=False))
+        self.batch_norm = nn.BatchNorm1d((hidden_dim))
+
+    def forward(self, x):
+        h = x
+        h = F.relu(self.batch_norm(self.linears[0](h)))
+        return self.linears[1](h)
+
+class GIN_PYG(nn.Module):
+    """
+    Copied from: https://github.com/dmlc/dgl/blob/master/examples/pytorch/gin/train.py
+    """
+
+    def __init__(self, input_dim, hidden_dim, output_dim):
+        super().__init__()
+        self.ginlayers = nn.ModuleList()
+        self.batch_norms = nn.ModuleList()
+        num_layers = 5
+        # five-layer GCN with two-layer MLP aggregator and sum-neighbor-pooling scheme
+        for layer in range(num_layers - 1):  # excluding the input layer
+            if layer == 0:
+                mlp = MLP(input_dim, hidden_dim, hidden_dim)
+            else:
+                mlp = MLP(hidden_dim, hidden_dim, hidden_dim)
+            self.ginlayers.append(
+                GINConv(mlp, learn_eps=False)
+            )  # set to True if learning epsilon
+            self.batch_norms.append(nn.BatchNorm1d(hidden_dim))
+        # linear functions for graph sum poolings of output of each layer
+        self.linear_prediction = nn.ModuleList()
+        for layer in range(num_layers):
+            if layer == 0:
+                self.linear_prediction.append(nn.Linear(input_dim, output_dim))
+            else:
+                self.linear_prediction.append(nn.Linear(hidden_dim, output_dim))
+        self.drop = nn.Dropout(0.5)
+        self.pool = (
+            SumPooling()
+        )  # change to mean readout (AvgPooling) on social network datasets
+
+    def forward(self, graph):
+
+        h = graph.x.long().squeeze(1)
+        edge_index = graph.edge_index
+        g = dgl.graph((edge_index[0, :], edge_index[1, :]))
+
+        # list of hidden representation at each layer (including the input layer)
+        hidden_rep = [h]
+        for i, layer in enumerate(self.ginlayers):
+            h = layer(g, h)
+            h = self.batch_norms[i](h)
+            h = F.relu(h)
+            hidden_rep.append(h)
+        score_over_layer = 0
+        # perform graph sum pooling over all nodes in each layer
+        for i, h in enumerate(hidden_rep):
+            pooled_h = self.pool(g, h)
+            score_over_layer += self.drop(self.linear_prediction[i](pooled_h))
+
+        return score_over_layer
 
 def main():
 
@@ -560,12 +642,25 @@ def main():
     HIDDEN_DIM = 64  # @param {type:"integer"}
     LR = 0.0003  # @param {type:"number"}
 
-    model_gin = GIN(input_dim=batch_zinc.x.size()[-1], output_dim=1, hidden_dim=HIDDEN_DIM, num_layers=4, eps=0.1)
-    out, _ = model_gin(batch_zinc)
+    # model_gin = GIN(input_dim=batch_zinc.x.size()[-1], output_dim=1, hidden_dim=HIDDEN_DIM, num_layers=4, eps=0.1)
+    # out, _ = model_gin(batch_zinc)
+    # print(out.detach().numpy())
+    #
+    # # Train GIN model:
+    # train_stats_gin_zinc = train_eval(model_gin, train_zinc_dataset, val_zinc_dataset,
+    #                                   test_zinc_dataset, loss_fct=F.mse_loss,
+    #                                   metric_fct=F.mse_loss,
+    #                                   LR=LR, BATCH_SIZE=BATCH_SIZE, NUM_EPOCHS=NUM_EPOCHS,
+    #                                   print_every=150)
+    # plot_stats(train_stats_gin_zinc, name='GIN_ZINC', figsize=(5, 10))
+
+    # try GIN graph implemented by pyg
+    model_gin_pyg = GIN_PYG(input_dim=batch_zinc.x.size()[-1], output_dim=1, hidden_dim=HIDDEN_DIM) #, num_layers=4, eps=0.1)
+    out, _ = model_gin_pyg(batch_zinc)
     print(out.detach().numpy())
 
     # Train GIN model:
-    train_stats_gin_zinc = train_eval(model_gin, train_zinc_dataset, val_zinc_dataset,
+    train_stats_gin_zinc = train_eval(model_gin_pyg, train_zinc_dataset, val_zinc_dataset,
                                       test_zinc_dataset, loss_fct=F.mse_loss,
                                       metric_fct=F.mse_loss,
                                       LR=LR, BATCH_SIZE=BATCH_SIZE, NUM_EPOCHS=NUM_EPOCHS,
