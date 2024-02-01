@@ -323,6 +323,104 @@ def train_eval(model, train_dataset, val_dataset, test_dataset,
     print(f"Test metric: {test_metric:.3f}")
     return training_stats
 
+class GIN(nn.Module):
+    """
+    A Graph Neural Network containing GIN layers
+    as in https://arxiv.org/abs/1810.00826
+    The readout function used to obtain graph-lvl representations
+    aggregate pred from multiple layers (as in JK-Net)
+
+    Args:
+    input_dim (int): Dimensionality of the input feature vectors
+    output_dim (int): Dimensionality of the output softmax distribution
+    num_layers (int): Number of layers
+    """
+    def __init__(self, input_dim, output_dim, hidden_dim, num_layers=2, eps=0.0, molecular=True):
+        super(GIN, self).__init__()
+        self.num_layers = num_layers
+        self.molecular = molecular
+        # nodes in ZINC dataset are characterised by one integer (atom category)
+        # we will create embeddings from the categorical features using nn.Embedding
+        if self.molecular:
+            self.embed_x = Embedding(28, hidden_dim)
+        else:
+            self.embed_x = Linear(input_dim, hidden_dim)
+
+        # ============ YOUR CODE HERE =============
+        # should be the same as before (an nn.ModuleList of GINLayers)
+        # self.layers = ...
+        self.layers = [GINLayer(hidden_dim, hidden_dim, hidden_dim, eps) for _ in range(num_layers-1)]
+        self.layers += [GINLayer(hidden_dim, output_dim, hidden_dim, eps)]
+        self.layers = nn.ModuleList(self.layers)
+
+
+        # layer to compute prediction from the concatenated intermediate representations
+        # self.pred_layers = ...
+        # =========================================
+        self.pred_layers = [nn.Linear(input_dim, output_dim)]
+        # self.pred_layers += [nn.Linear(hidden_dim, output_dim) for _ in range(num_layers - 1)]
+        self.pred_layers += [nn.Linear(hidden_dim, output_dim) for _ in range(num_layers)]
+        # self.pred_layers = [nn.Linear(hidden_dim, output_dim) for _ in range(num_layers)]
+        self.pred_layers = nn.ModuleList(self.pred_layers)
+        # self.pred_layers = nn.Linear((num_layers-1) * hidden_dim, output_dim)
+        self.drop = nn.Dropout(0.4)
+
+        pass
+
+    def forward(self, graph):
+        adj_sparse = graph.get_adjacency_matrix()
+        if self.molecular:
+            x = self.embed_x(graph.x.long()).squeeze(1)
+        else:
+            x = self.embed_x(graph.x)
+
+        # ============ YOUR CODE HERE =============
+        # perform the forward pass with the new readout function
+        hidden_rep = [graph.x.long(), x]
+        for i in range(self.num_layers):
+            # x = ...
+            x = self.layers[i](x, adj_sparse)
+            x = F.relu(x)
+            hidden_rep.append(x)
+            pass
+
+        # loop over all x beside the last on
+        ind = graph.batch
+        score_over_layer = 0
+        for i in range(0, (self.num_layers)):
+            h = hidden_rep[i]
+            pooled_h = scatter_sum(h, ind, dim=0)
+            hg = self.pred_layers[i](pooled_h)
+            hg = self.drop(hg)
+            score_over_layer += hg
+            pass
+
+        # hg_concat = torch.cat(hg_list, dim=0)
+
+        # y_hat = ...
+        # ind = graph.batch
+        # y_hat = scatter_sum(hg_concat, ind, dim=0)
+        # y_hat = hg_concat.sum(dim=0)
+        y_hat = score_over_layer.squeeze()
+
+        # ind = graph.batch
+        # h_list = []
+        # for i in range(self.num_layers-1):
+        #     # x = ...
+        #     x = self.layers[i](x, adj_sparse)
+        #     x = F.relu(x)
+        #     h = scatter_sum(x, ind, dim=0)
+        #     h_list.append(h)
+        #     pass
+        #
+        # hg = torch.cat(h_list, dim=1)
+        # y_hat = self.pred_layers(hg)
+
+        pass
+        # =========================================
+        # return also the final node embeddings (for visualisations)
+        return y_hat, x
+
 
 def main():
 
@@ -440,18 +538,38 @@ def main():
     batch = train_zinc_dataset[:BATCH_SIZE]
     unit_test_mini_batch(batch, BATCH_SIZE, HIDDEN_DIM)
 
-    # Instantiate our GIN model
+    # Instantiate our SimpleGIN model
     model_simple_gin = SimpleGIN(input_dim=batch_zinc.x.size()[-1], output_dim=1, hidden_dim=HIDDEN_DIM, num_layers=4, eps=0.1)
     out, _ = model_simple_gin(batch_zinc)
     print(out.detach().numpy())
 
+    # # Train SimpleGIN model:
+    # train_stats_simple_gin_zinc = train_eval(model_simple_gin, train_zinc_dataset, val_zinc_dataset,
+    #                                          test_zinc_dataset, loss_fct=F.mse_loss,
+    #                                          metric_fct=F.mse_loss,
+    #                                          LR=LR, BATCH_SIZE=BATCH_SIZE, NUM_EPOCHS=NUM_EPOCHS,
+    #                                          print_every=150)
+    # plot_stats(train_stats_simple_gin_zinc, name='Simple_GIN_ZINC', figsize=(5, 10))
+
+    # --------------------------------
+    # now let's try a full GIN model
+    # --------------------------------
+    BATCH_SIZE = 128  # @param {type:"integer"}
+    NUM_EPOCHS = 30  # @param {type:"integer"}
+    HIDDEN_DIM = 64  # @param {type:"integer"}
+    LR = 0.001  # @param {type:"number"}
+
+    model_gin = GIN(input_dim=batch_zinc.x.size()[-1], output_dim=1, hidden_dim=HIDDEN_DIM, num_layers=4, eps=0.1)
+    out, _ = model_gin(batch_zinc)
+    print(out.detach().numpy())
+
     # Train GIN model:
-    train_stats_simple_gin_zinc = train_eval(model_simple_gin, train_zinc_dataset, val_zinc_dataset,
-                                             test_zinc_dataset, loss_fct=F.mse_loss,
-                                             metric_fct=F.mse_loss,
-                                             LR=LR, BATCH_SIZE=BATCH_SIZE, NUM_EPOCHS=NUM_EPOCHS,
-                                             print_every=150)
-    plot_stats(train_stats_simple_gin_zinc, name='Simple_GIN_ZINC', figsize=(5, 10))
+    train_stats_gin_zinc = train_eval(model_gin, train_zinc_dataset, val_zinc_dataset,
+                                      test_zinc_dataset, loss_fct=F.mse_loss,
+                                      metric_fct=F.mse_loss,
+                                      LR=LR, BATCH_SIZE=BATCH_SIZE, NUM_EPOCHS=NUM_EPOCHS,
+                                      print_every=150)
+    plot_stats(train_stats_gin_zinc, name='GIN_ZINC', figsize=(5, 10))
 
     pass
 
