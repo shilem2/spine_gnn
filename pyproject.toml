@@ -1,0 +1,32 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = ["setuptools>=61.0"]
+
+[project.urls]
+Homepage = "https://code.medtronic.com/magic_sw_and_algorithm_team/algorithms/spine3d_wrapper"
+
+[project]
+name = "gnn"
+version = "0.0.1"
+authors = [
+  { name="Moshe Shilemay", email="moshe.shilemay@medtronic.com" },
+]
+description = "Playground with GNNs"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+#    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+dependencies = [
+    "torch-scatter",
+    "torch-sparse",
+    "torch-geometric",
+    "networkx",
+    "seaborn",
+]
+
+
+
