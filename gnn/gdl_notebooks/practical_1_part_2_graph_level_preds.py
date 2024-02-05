@@ -457,7 +457,7 @@ class GIN_PYG(nn.Module):
     Copied from: https://github.com/dmlc/dgl/blob/master/examples/pytorch/gin/train.py
     """
 
-    def __init__(self, input_dim, hidden_dim, output_dim):
+    def __init__(self, input_dim, hidden_dim, output_dim, eps=0.0):
         super().__init__()
         self.ginlayers = nn.ModuleList()
         self.batch_norms = nn.ModuleList()
@@ -469,7 +469,7 @@ class GIN_PYG(nn.Module):
             else:
                 mlp = MLP(hidden_dim, hidden_dim, hidden_dim)
             self.ginlayers.append(
-                GINConv(mlp, learn_eps=False)
+                GINConv(mlp, learn_eps=False, init_eps=eps)
             )  # set to True if learning epsilon
             self.batch_norms.append(nn.BatchNorm1d(hidden_dim))
         # linear functions for graph sum poolings of output of each layer
@@ -486,24 +486,30 @@ class GIN_PYG(nn.Module):
 
     def forward(self, graph):
 
-        h = graph.x.long().squeeze(1)
+        h = graph.x.long().float()
         edge_index = graph.edge_index
         g = dgl.graph((edge_index[0, :], edge_index[1, :]))
+        # g = dgl.graph((edge_index[0, :].type(torch.FloatTensor), edge_index[1, :].type(torch.FloatTensor)))
+        # g = dgl.graph((edge_index[0, :].numpy().astype('float'), edge_index[1, :].numpy().astype('float')))
 
         # list of hidden representation at each layer (including the input layer)
         hidden_rep = [h]
         for i, layer in enumerate(self.ginlayers):
+            h = h.float()
             h = layer(g, h)
             h = self.batch_norms[i](h)
             h = F.relu(h)
             hidden_rep.append(h)
         score_over_layer = 0
         # perform graph sum pooling over all nodes in each layer
+
+        ind = graph.batch
         for i, h in enumerate(hidden_rep):
-            pooled_h = self.pool(g, h)
+            # pooled_h = self.pool(g, h)
+            pooled_h = scatter_sum(h, ind, dim=0)
             score_over_layer += self.drop(self.linear_prediction[i](pooled_h))
 
-        return score_over_layer
+        return score_over_layer, h
 
 def main():
 
@@ -640,28 +646,34 @@ def main():
     BATCH_SIZE = 128  # @param {type:"integer"}
     NUM_EPOCHS = 30  # @param {type:"integer"}
     HIDDEN_DIM = 64  # @param {type:"integer"}
-    LR = 0.0003  # @param {type:"number"}
+    LR = 0.001  # @param {type:"number"}
 
-    # model_gin = GIN(input_dim=batch_zinc.x.size()[-1], output_dim=1, hidden_dim=HIDDEN_DIM, num_layers=4, eps=0.1)
-    # out, _ = model_gin(batch_zinc)
-    # print(out.detach().numpy())
-    #
-    # # Train GIN model:
-    # train_stats_gin_zinc = train_eval(model_gin, train_zinc_dataset, val_zinc_dataset,
-    #                                   test_zinc_dataset, loss_fct=F.mse_loss,
-    #                                   metric_fct=F.mse_loss,
-    #                                   LR=LR, BATCH_SIZE=BATCH_SIZE, NUM_EPOCHS=NUM_EPOCHS,
-    #                                   print_every=150)
-    # plot_stats(train_stats_gin_zinc, name='GIN_ZINC', figsize=(5, 10))
+    model_gin = GIN(input_dim=batch_zinc.x.size()[-1], output_dim=1, hidden_dim=HIDDEN_DIM, num_layers=4, eps=0.1)
+    out, _ = model_gin(batch_zinc)
+    print(out.detach().numpy())
+
+    # Train GIN model:
+    train_stats_gin_zinc = train_eval(model_gin, train_zinc_dataset, val_zinc_dataset,
+                                      test_zinc_dataset, loss_fct=F.mse_loss,
+                                      metric_fct=F.mse_loss,
+                                      LR=LR, BATCH_SIZE=BATCH_SIZE, NUM_EPOCHS=NUM_EPOCHS,
+                                      print_every=150)
+    plot_stats(train_stats_gin_zinc, name='GIN_ZINC', figsize=(5, 10))
 
     # try GIN graph implemented by pyg
-    model_gin_pyg = GIN_PYG(input_dim=batch_zinc.x.size()[-1], output_dim=1, hidden_dim=HIDDEN_DIM) #, num_layers=4, eps=0.1)
+    BATCH_SIZE = 128  # @param {type:"integer"}
+    NUM_EPOCHS = 150  # 30  # @param {type:"integer"}
+    HIDDEN_DIM = 64  # @param {type:"integer"}
+    LR = 0.0003  # @param {type:"number"}
+    model_gin_pyg = GIN_PYG(input_dim=batch_zinc.x.size()[-1], output_dim=1, hidden_dim=HIDDEN_DIM, eps=0.1) #, num_layers=4, eps=0.1)
     out, _ = model_gin_pyg(batch_zinc)
     print(out.detach().numpy())
 
     # Train GIN model:
     train_stats_gin_zinc = train_eval(model_gin_pyg, train_zinc_dataset, val_zinc_dataset,
-                                      test_zinc_dataset, loss_fct=F.mse_loss,
+                                      test_zinc_dataset,
+                                      loss_fct=F.mse_loss,
+                                      # loss_fct=nn.CrossEntropyLoss(),
                                       metric_fct=F.mse_loss,
                                       LR=LR, BATCH_SIZE=BATCH_SIZE, NUM_EPOCHS=NUM_EPOCHS,
                                       print_every=150)
