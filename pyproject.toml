@@ -27,6 +27,8 @@ dependencies = [
     "networkx",
     "seaborn",
     "dgl",
+    "rdkit-pypi",
+    "py3Dmol",
 ]
 
 

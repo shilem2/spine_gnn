@@ -14,6 +14,8 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 
 from scipy.linalg import block_diag
+import torch
+import random
 
 # @title [RUN] Helper functions for plots and visualisations
 
@@ -172,3 +174,13 @@ def print_color_numpy(map, list_graphs):
 
     map_modified = np.vectorize(get_color_coded_str)(map, block_color)
     print("\n".join([" ".join(["{}"]*map.shape[0])]*map.shape[1]).format(*[x for y in map_modified.tolist() for x in y]))
+
+
+def seed(seed=0):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False

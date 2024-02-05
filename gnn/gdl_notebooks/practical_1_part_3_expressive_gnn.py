@@ -1,3 +1,13 @@
+"""
+Course page:
+https://geometricdeeplearning.com/lectures/
+
+Original colab notebook:
+https://colab.research.google.com/drive/1p9vlVAUcQZXQjulA7z_FyPrB9UXFATrR
+
+My copy:
+https://colab.research.google.com/drive/1UW-rfX-IKa4TCXF-vhjSNJmc-E-nZ-pw#scrollTo=ExJ0b3xcQl5n
+"""
 
 import torch
 import itertools
