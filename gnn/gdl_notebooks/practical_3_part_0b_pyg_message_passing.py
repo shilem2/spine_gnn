@@ -8,8 +8,7 @@ https://colab.research.google.com/drive/1p9vlVAUcQZXQjulA7z_FyPrB9UXFATrR
 My copy:
 https://colab.research.google.com/drive/1UW-rfX-IKa4TCXF-vhjSNJmc-E-nZ-pw#scrollTo=2xcV8Yb148Kq
 """
-
-
+import matplotlib.pyplot as plt
 import torch
 from torch.nn import Linear, ReLU, BatchNorm1d, Module, Sequential
 
@@ -361,13 +360,18 @@ def main():
     )
     RESULTS[model_name] = (best_val_error, test_error, train_time)
     df_temp = pd.DataFrame(perf_per_epoch, columns=["Test MAE", "Val MAE", "Epoch", "Model"])
-    DF_RESULTS = DF_RESULTS.append(df_temp, ignore_index=True)
+    # DF_RESULTS = DF_RESULTS.merge(df_temp, ignore_index=True)
+    DF_RESULTS = pd.concat((DF_RESULTS, df_temp), ignore_index=True)
 
     print(RESULTS)
 
+    sns.set_style('darkgrid')
+
+    fig, ax = plt.subplots()
     p = sns.lineplot(x="Epoch", y="Val MAE", hue="Model", data=DF_RESULTS)
     p.set(ylim=(0, 2))
 
+    fig, ax = plt.subplots()
     p = sns.lineplot(x="Epoch", y="Test MAE", hue="Model", data=DF_RESULTS)
     p.set(ylim=(0, 1))
 

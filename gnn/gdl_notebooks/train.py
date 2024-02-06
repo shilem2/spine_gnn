@@ -37,7 +37,9 @@ def run_experiment(model, model_name, train_loader, val_loader, test_loader, n_e
 
     print(f"Running experiment for {model_name}, training on {len(train_loader.dataset)} samples for {n_epochs} epochs.")
 
-    device = torch.device('cuda' if torch.cuda.is_available() else 'mps' if torch.backends.mps.is_available() else 'cpu')
+    # device = torch.device('cuda' if torch.cuda.is_available() else 'mps' if torch.backends.mps.is_available() else 'cpu')
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print('\nDevice: {}'.format(device))
 
     print("\nModel architecture:")
     print(model)

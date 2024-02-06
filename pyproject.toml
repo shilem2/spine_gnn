@@ -29,6 +29,7 @@ dependencies = [
     "dgl",
     "rdkit-pypi",
     "py3Dmol",
+    "jupyter",
 ]
 
 
