@@ -48,9 +48,9 @@ print("PyTorch version {}".format(torch.__version__))
 print("PyG version {}".format(torch_geometric.__version__))
 
 
-from gnn.gdl_notebooks.practical_3_part_0a_molecule_pred_pyg import MolTo3DView, smi2conf, to_rdkit
 from gnn.gdl_notebooks.practical_3_part_0b_pyg_message_passing import MPNNLayer, MPNNModel, permutation_invariance_unit_test, permutation_equivariance_unit_test
 from gnn.gdl_notebooks.utils import get_qm9_data
+from gnn.gdl_notebooks.train import run_experiment
 
 
 
@@ -137,7 +137,7 @@ def main():
 
     # Instantiate temporary model, layer, and dataloader for unit testing
     layer = MPNNLayer(emb_dim=11, edge_dim=4)
-    model = CoordMPNNModel(num_layers=4, emb_dim=64, in_dim=11, edge_dim=4, out_dim=1)
+    model = CoordMPNNModel(num_layers=4, emb_dim=64, in_dim=11, edge_dim=4, out_dim=1, coord_dim=3)
 
     # ==========================================
     dataloader = DataLoader(train_dataset, batch_size=1, shuffle=True)
@@ -148,6 +148,49 @@ def main():
     # Permutation equivariance unit for MPNN layer
     print(f"Is {type(layer).__name__} permutation equivariant? --> {permutation_equivariance_unit_test(layer, dataloader)}!")
 
+    # Task 1.4: Train and evaluate your `CoordMPNNModel` with node features and coordinates on QM9
+
+    # ============ YOUR CODE HERE ==============
+    # Instantiate your CoordMPNNModel with the appropriate arguments.
+    #
+    # model = CoordMPNNModel(...)
+
+    model = CoordMPNNModel(num_layers=4, emb_dim=64, in_dim=11, edge_dim=4, out_dim=1, coord_dim=3)
+    # ==========================================
+
+    train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
+    val_loader = DataLoader(val_dataset, batch_size=32, shuffle=False)
+    test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
+
+    model_name = type(model).__name__
+    best_val_error, test_error, train_time, perf_per_epoch = run_experiment(
+        model,
+        model_name,  # "MPNN w/ Features and Coordinates",
+        train_loader,
+        val_loader,
+        test_loader,
+        n_epochs=100,
+        std=std,
+    )
+
+    RESULTS = {}
+    DF_RESULTS = pd.DataFrame(columns=["Test MAE", "Val MAE", "Epoch", "Model"])
+
+    RESULTS[model_name] = (best_val_error, test_error, train_time)
+    df_temp = pd.DataFrame(perf_per_epoch, columns=["Test MAE", "Val MAE", "Epoch", "Model"])
+    DF_RESULTS = pd.concat((DF_RESULTS, df_temp), ignore_index=True)
+
+    # print(RESULTS)
+
+    sns.set_style('darkgrid')
+
+    fig, ax = plt.subplots()
+    p = sns.lineplot(x="Epoch", y="Val MAE", hue="Model", data=DF_RESULTS)
+    p.set(ylim=(0, 2))
+
+    fig, ax = plt.subplots()
+    p = sns.lineplot(x="Epoch", y="Test MAE", hue="Model", data=DF_RESULTS)
+    p.set(ylim=(0, 1))
 
     pass
 
