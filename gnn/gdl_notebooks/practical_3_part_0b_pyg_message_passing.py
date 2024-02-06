@@ -9,42 +9,20 @@ My copy:
 https://colab.research.google.com/drive/1UW-rfX-IKa4TCXF-vhjSNJmc-E-nZ-pw#scrollTo=2xcV8Yb148Kq
 """
 
-import os
-import time
-import random
-import numpy as np
-
-from scipy.stats import ortho_group
 
 import torch
-import torch.nn.functional as F
 from torch.nn import Linear, ReLU, BatchNorm1d, Module, Sequential
 
 import torch_geometric
-from torch_geometric.data import Data
-from torch_geometric.data import Batch
-from torch_geometric.datasets import QM9
 import torch_geometric.transforms as T
-from torch_geometric.utils import remove_self_loops, to_dense_adj, dense_to_sparse
+from torch_geometric.utils import to_dense_adj, dense_to_sparse
 from torch_geometric.loader import DataLoader
 from torch_geometric.nn import MessagePassing, global_mean_pool
 from torch_geometric.datasets import QM9
 from torch_scatter import scatter
 
-import rdkit.Chem as Chem
-from rdkit.Geometry.rdGeometry import Point3D
-from rdkit.Chem import QED, Crippen, rdMolDescriptors, rdmolops, Draw
-# from rdkit.Chem.Draw import IPythonConsole
-
-import py3Dmol
-from rdkit.Chem import AllChem
-
-import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
-
-# from google.colab import files
-# from IPython.display import HTML
 
 print("PyTorch version {}".format(torch.__version__))
 print("PyG version {}".format(torch_geometric.__version__))
@@ -52,7 +30,7 @@ print("PyG version {}".format(torch_geometric.__version__))
 
 from gnn.gdl_notebooks.utils import seed
 from gnn.gdl_notebooks.practical_3_part_0a_molecule_pred_pyg import CompleteGraph, SetTarget
-
+from gnn.gdl_notebooks.train import run_experiment, train, eval
 
 
 class MPNNLayer(MessagePassing):
@@ -355,6 +333,43 @@ def main():
 
     # Permutation equivariance unit for MPNN layer
     print(f"Is {type(layer).__name__} permutation equivariant? --> {permutation_equivariance_unit_test(layer, dataloader)}!")
+
+    # --------------
+    #  --- train ---
+    # --------------
+
+    # Create dataloaders with batch size = 32
+
+    train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
+    val_loader = DataLoader(val_dataset, batch_size=32, shuffle=False)
+    test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
+
+    # For storing experimental results over the course of the practical
+    RESULTS = {}
+    DF_RESULTS = pd.DataFrame(columns=["Test MAE", "Val MAE", "Epoch", "Model"])
+
+    model = MPNNModel(num_layers=4, emb_dim=64, in_dim=11, edge_dim=4, out_dim=1)
+    model_name = type(model).__name__
+    best_val_error, test_error, train_time, perf_per_epoch = run_experiment(
+        model,
+        model_name,
+        train_loader,
+        val_loader,
+        test_loader,
+        n_epochs=100,
+        std=std,
+    )
+    RESULTS[model_name] = (best_val_error, test_error, train_time)
+    df_temp = pd.DataFrame(perf_per_epoch, columns=["Test MAE", "Val MAE", "Epoch", "Model"])
+    DF_RESULTS = DF_RESULTS.append(df_temp, ignore_index=True)
+
+    print(RESULTS)
+
+    p = sns.lineplot(x="Epoch", y="Val MAE", hue="Model", data=DF_RESULTS)
+    p.set(ylim=(0, 2))
+
+    p = sns.lineplot(x="Epoch", y="Test MAE", hue="Model", data=DF_RESULTS)
+    p.set(ylim=(0, 1))
 
     pass
 
