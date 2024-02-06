@@ -11,34 +11,12 @@ https://colab.research.google.com/drive/1UW-rfX-IKa4TCXF-vhjSNJmc-E-nZ-pw#scroll
 
 #@title [RUN] Import python modules
 
-import os
-import time
-import random
-import numpy as np
-
-from scipy.stats import ortho_group
-
 import torch
-import torch.nn.functional as F
 from torch.nn import Linear, ReLU, BatchNorm1d, Module, Sequential
 
 import torch_geometric
-from torch_geometric.data import Data
-from torch_geometric.data import Batch
-from torch_geometric.datasets import QM9
-import torch_geometric.transforms as T
-from torch_geometric.utils import remove_self_loops, to_dense_adj, dense_to_sparse
 from torch_geometric.loader import DataLoader
 from torch_geometric.nn import MessagePassing, global_mean_pool
-from torch_geometric.datasets import QM9
-from torch_scatter import scatter
-
-import rdkit.Chem as Chem
-from rdkit.Geometry.rdGeometry import Point3D
-from rdkit.Chem import QED, Crippen, rdMolDescriptors, rdmolops
-
-import py3Dmol
-from rdkit.Chem import AllChem
 
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -51,7 +29,6 @@ print("PyG version {}".format(torch_geometric.__version__))
 from gnn.gdl_notebooks.practical_3_part_0b_pyg_message_passing import MPNNLayer, MPNNModel, permutation_invariance_unit_test, permutation_equivariance_unit_test
 from gnn.gdl_notebooks.utils import get_qm9_data
 from gnn.gdl_notebooks.train import run_experiment
-
 
 
 class CoordMPNNModel(MPNNModel):
