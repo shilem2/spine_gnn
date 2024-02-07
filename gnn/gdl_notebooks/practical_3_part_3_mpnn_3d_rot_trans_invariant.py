@@ -104,7 +104,7 @@ def rot_trans_invariance_unit_test(module, dataloader):
 
 
 class CoordMPNNModel(MPNNModel):
-    def __init__(self, num_layers=4, emb_dim=64, in_dim=11, edge_dim=4, out_dim=1):
+    def __init__(self, num_layers=4, emb_dim=64, in_dim=11, edge_dim=4, out_dim=1, coord_dim=3):
         """Message Passing Neural Network model for graph property prediction
 
         This model uses both node features and coordinates as inputs.
@@ -127,7 +127,7 @@ class CoordMPNNModel(MPNNModel):
         # dim: ??? -> d
         # self.lin_in = ...
 
-        self.lin_in = Linear(in_dim, emb_dim)
+        self.lin_in = Linear(in_dim + coord_dim, emb_dim)
 
         # ==========================================
 
@@ -157,7 +157,8 @@ class CoordMPNNModel(MPNNModel):
         #
         # h = ...
 
-        h = self.lin_in(data.x)
+        node_feat = torch.cat((data.x, data.pos), dim=1)
+        h = self.lin_in(node_feat)
 
         # ==========================================
 
@@ -392,6 +393,50 @@ def main():
 
     # Rotation and translation invariance unit test for MPNN layer
     print(f"Is {type(layer).__name__} rotation and translation invariant? --> {rot_trans_invariance_unit_test(layer, dataloader)}!")
+
+
+    # Train invariant model!
+
+    # ============ YOUR CODE HERE ==============
+    # Instantiate your InvariantMPNNModel with the appropriate arguments.
+    #
+    # model = InvariantMPNNModel(...)
+    # ==========================================
+
+    train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
+    val_loader = DataLoader(val_dataset, batch_size=32, shuffle=False)
+    test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
+
+    model = InvariantMPNNModel(num_layers=4, emb_dim=64, in_dim=11, edge_dim=4, out_dim=1)
+
+    model_name = type(model).__name__
+    best_val_error, test_error, train_time, perf_per_epoch = run_experiment(
+        model,
+        model_name,  # "MPNN w/ Features and Coordinates (Invariant Layers)",
+        train_loader,
+        val_loader,
+        test_loader,
+        n_epochs=100
+    )
+
+    RESULTS = {}
+    DF_RESULTS = pd.DataFrame(columns=["Test MAE", "Val MAE", "Epoch", "Model"])
+
+    RESULTS[model_name] = (best_val_error, test_error, train_time)
+    df_temp = pd.DataFrame(perf_per_epoch, columns=["Test MAE", "Val MAE", "Epoch", "Model"])
+    DF_RESULTS = pd.concat((DF_RESULTS, df_temp), ignore_index=True)
+
+    # print(RESULTS)
+
+    sns.set_style('darkgrid')
+
+    fig, ax = plt.subplots()
+    p = sns.lineplot(x="Epoch", y="Val MAE", hue="Model", data=DF_RESULTS)
+    p.set(ylim=(0, 2))
+
+    fig, ax = plt.subplots()
+    p = sns.lineplot(x="Epoch", y="Test MAE", hue="Model", data=DF_RESULTS)
+    p.set(ylim=(0, 1))
 
     pass
 
