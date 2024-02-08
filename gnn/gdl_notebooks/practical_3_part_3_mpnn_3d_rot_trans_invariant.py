@@ -371,8 +371,6 @@ def main():
     # Rotation and translation invariance unit test for MPNN model
     print(f"Is {type(model).__name__} rotation and translation invariant? --> {rot_trans_invariance_unit_test(model, dataloader)}!")
 
-
-
     # Unit test CoordMPNNModel
     # ============ YOUR CODE HERE ==============
     # Instantiate temporary model, layer, and dataloader for unit testing.
