@@ -20,7 +20,7 @@ def main():
     test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
 
     # model = FinalMPNNModel(num_layers=4, emb_dim=64, in_dim=11, edge_dim=4, coord_dim=3, out_dim=1)
-    model = ViSNet()
+    model = ViSNet(vertex=True)
 
     model_name = type(model).__name__
     best_val_error, test_error, train_time, perf_per_epoch = run_experiment(

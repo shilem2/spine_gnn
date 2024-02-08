@@ -95,7 +95,7 @@ def main():
 
 if __name__ == '__main__':
 
-    # main()
-    eval_pretrained()
+    main()
+    # eval_pretrained()
 
     pass
