@@ -31,6 +31,8 @@ dependencies = [
     "rdkit-pypi",
     "py3Dmol",
     "jupyter",
+    "ase",
+    "schnetpack",
 ]
 
 
