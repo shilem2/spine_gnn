@@ -74,8 +74,8 @@ class EquivariantMPNNLayer(MessagePassing):
         # the current position pos_i should introduce the translation equivariance.
         # the message composed of vector pointing from node i to node j should introduce the rotation equivariace.
         self.mlp_upd_equivariant = Sequential(
-            Linear(2*coord_dim, coord_dim), BatchNorm1d(coord_dim), ReLU(),
-            # Linear(coord_dim, coord_dim), BatchNorm1d(coord_dim), ReLU(),
+            # Linear(2*coord_dim, coord_dim), BatchNorm1d(coord_dim), ReLU(),
+            Linear(coord_dim, coord_dim), BatchNorm1d(coord_dim), ReLU(),
             Linear(coord_dim, coord_dim), BatchNorm1d(coord_dim), ReLU()
           )
 
@@ -160,8 +160,8 @@ class EquivariantMPNNLayer(MessagePassing):
         update_input_h = torch.cat([h, aggregated_msg_h], dim=-1)
         update_h = self.mlp_upd_invariant(update_input_h)
 
-        update_input_pos = torch.cat([pos, aggregated_msg_pos], dim=-1)
-        # update_input_pos = pos
+        # update_input_pos = torch.cat([pos, aggregated_msg_pos], dim=-1)
+        update_input_pos = pos
         update_pos = self.mlp_upd_equivariant(update_input_pos)
 
         return update_h, update_pos
@@ -202,11 +202,6 @@ class FinalMPNNModel(MPNNModel):
         # PyG handles the underlying logic via `global_mean_pool()`
         self.pool = global_mean_pool
 
-        # interaction between embedding and positions
-        self.interaction = Sequential(
-            Linear(emb_dim + coord_dim, emb_dim), ReLU(), Linear(emb_dim, emb_dim)
-          )
-
         # Linear prediction head
         # dim: d -> out_dim
         self.lin_pred = Linear(emb_dim, out_dim)
@@ -234,11 +229,8 @@ class FinalMPNNModel(MPNNModel):
             pos = pos_update  # (n, 3) -> (n, 3)
 
         h_graph = self.pool(h, data.batch) # (n, d) -> (batch_size, d)
-        pos_graph = self.pool(pos, data.batch) # (n, d) -> (batch_size, d)
 
-        h_pos_graph = h_graph + self.interaction(torch.cat([h_graph, pos_graph], dim=1))  # res unit
-
-        out = self.lin_pred(h_pos_graph) # (batch_size, d) -> (batch_size, 1)
+        out = self.lin_pred(h_graph) # (batch_size, d) -> (batch_size, 1)
 
         return out.view(-1)
 
@@ -334,9 +326,6 @@ def main():
 
     # Unit test FinalMPNNModel
     # Instantiate temporary model, layer, and dataloader for unit testing
-    layer = EquivariantMPNNLayer(emb_dim=11, edge_dim=4, coord_dim=3, aggr='add')
-    model = FinalMPNNModel(num_layers=4, emb_dim=64, in_dim=11, edge_dim=4, coord_dim=3, out_dim=1)
-
     # ============ YOUR CODE HERE ==============
     # Instantiate temporary model, layer, and dataloader for unit testing.
     # Remember that we are now unit testing the FinalMPNNModel,
@@ -347,11 +336,14 @@ def main():
     # ==========================================
     dataloader = DataLoader(train_dataset, batch_size=1, shuffle=True)
 
+    # Rotation and translation invariance unit test for MPNN layer
+    layer = EquivariantMPNNLayer(emb_dim=11, edge_dim=4, coord_dim=3, aggr='add')
+    print(f"Is {type(layer).__name__} rotation and translation equivariant? --> {rot_trans_equivariance_unit_test(layer, dataloader)}!")
+
     # Rotation and translation invariance unit test for MPNN model
+    model = FinalMPNNModel(num_layers=4, emb_dim=64, in_dim=11, edge_dim=4, coord_dim=3, out_dim=1)
     print(f"Is {type(model).__name__} rotation and translation invariant? --> {rot_trans_invariance_unit_test(model, dataloader)}!")
 
-    # Rotation and translation invariance unit test for MPNN layer
-    print(f"Is {type(layer).__name__} rotation and translation equivariant? --> {rot_trans_equivariance_unit_test(layer, dataloader)}!")
 
     # train model
     train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
