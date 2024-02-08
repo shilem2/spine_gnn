@@ -1,6 +1,6 @@
 from scipy.stats import ortho_group
 import torch
-from torch.nn import Linear, ReLU, BatchNorm1d, Module, Sequential
+from torch.nn import Linear, ReLU, BatchNorm1d, Module, Sequential, Parameter
 
 from torch_geometric.loader import DataLoader
 from torch_geometric.nn import MessagePassing, Linear
@@ -8,13 +8,22 @@ from torch_geometric.nn.pool import global_mean_pool
 
 from torch_scatter import scatter
 
+import matplotlib.pyplot as plt
+import seaborn as sns
+import pandas as pd
+
 from gnn.gdl_notebooks.practical_3_part_0b_pyg_message_passing import MPNNLayer, MPNNModel
 from gnn.gdl_notebooks.practical_3_part_3_mpnn_3d_rot_trans_invariant import rot_trans_invariance_unit_test
 from gnn.gdl_notebooks.utils import get_qm9_data
+from gnn.gdl_notebooks.train import run_experiment
+
+# torch.set_printoptions(precision=3, sci_mode=False)
+torch.set_printoptions(profile='short', sci_mode=False)
+torch.set_printoptions(sci_mode=False)
 
 
 class EquivariantMPNNLayer(MessagePassing):
-    def __init__(self, emb_dim=64, edge_dim=4, coord_dim=3, aggr='add'):
+    def __init__(self, emb_dim=64, edge_dim=4, coord_dim=3, dist_dim=1, aggr='add'):
         """Message Passing Neural Network Layer
 
         This layer is equivariant to 3D rotations and translations.
@@ -29,7 +38,9 @@ class EquivariantMPNNLayer(MessagePassing):
 
         self.emb_dim = emb_dim
         self.edge_dim = edge_dim
+        self.dist_dim = dist_dim
         self.coord_dim = coord_dim
+        # self.radial_basis = GaussianRBF(n_rbf=20, cutoff=5)
 
         # ============ YOUR CODE HERE ==============
         # Define the MLPs constituting your new layer.
@@ -43,7 +54,7 @@ class EquivariantMPNNLayer(MessagePassing):
 
         # input: h_i, h_j node embeddings, edge embeddings
         self.mlp_msg_invariant = Sequential(
-            Linear(2*emb_dim + edge_dim, emb_dim), BatchNorm1d(emb_dim), ReLU(),
+            Linear(2*emb_dim + edge_dim + dist_dim, emb_dim), BatchNorm1d(emb_dim), ReLU(),
             Linear(emb_dim, emb_dim), BatchNorm1d(emb_dim), ReLU()
           )
 
@@ -64,6 +75,7 @@ class EquivariantMPNNLayer(MessagePassing):
         # the message composed of vector pointing from node i to node j should introduce the rotation equivariace.
         self.mlp_upd_equivariant = Sequential(
             Linear(2*coord_dim, coord_dim), BatchNorm1d(coord_dim), ReLU(),
+            # Linear(coord_dim, coord_dim), BatchNorm1d(coord_dim), ReLU(),
             Linear(coord_dim, coord_dim), BatchNorm1d(coord_dim), ReLU()
           )
 
@@ -112,10 +124,12 @@ class EquivariantMPNNLayer(MessagePassing):
 
     def message(self, h_i, h_j, pos_i, pos_j, edge_attr):
 
-        msg_pos_input = pos_j - pos_i  # vector from i to j, equivariant to rotation
+        poss_diff = pos_j - pos_i  # vector from i to j, equivariant to rotation
+        dist = torch.linalg.norm(poss_diff, dim=1, keepdim=True)
+        msg_pos_input = poss_diff / dist
         msg_pos = self.mlp_msg_equivariant(msg_pos_input)
 
-        msg_h_input = torch.cat([h_i, h_j, edge_attr], dim=-1)
+        msg_h_input = torch.cat([h_i, h_j, edge_attr, dist], dim=-1)
         msg_h = self.mlp_msg_invariant(msg_h_input)
 
         return msg_h, msg_pos
@@ -147,6 +161,7 @@ class EquivariantMPNNLayer(MessagePassing):
         update_h = self.mlp_upd_invariant(update_input_h)
 
         update_input_pos = torch.cat([pos, aggregated_msg_pos], dim=-1)
+        # update_input_pos = pos
         update_pos = self.mlp_upd_equivariant(update_input_pos)
 
         return update_h, update_pos
@@ -157,7 +172,7 @@ class EquivariantMPNNLayer(MessagePassing):
 
 
 class FinalMPNNModel(MPNNModel):
-    def __init__(self, num_layers=4, emb_dim=64, in_dim=11, edge_dim=4, coord_dim=3, out_dim=1):
+    def __init__(self, num_layers=4, emb_dim=64, in_dim=11, edge_dim=4, coord_dim=3, dist_dim=1, out_dim=1):
         """Message Passing Neural Network model for graph property prediction
 
         This model uses both node features and coordinates as inputs, and
@@ -187,6 +202,11 @@ class FinalMPNNModel(MPNNModel):
         # PyG handles the underlying logic via `global_mean_pool()`
         self.pool = global_mean_pool
 
+        # interaction between embedding and positions
+        self.interaction = Sequential(
+            Linear(emb_dim + coord_dim, emb_dim), ReLU(), Linear(emb_dim, emb_dim)
+          )
+
         # Linear prediction head
         # dim: d -> out_dim
         self.lin_pred = Linear(emb_dim, out_dim)
@@ -214,10 +234,59 @@ class FinalMPNNModel(MPNNModel):
             pos = pos_update  # (n, 3) -> (n, 3)
 
         h_graph = self.pool(h, data.batch) # (n, d) -> (batch_size, d)
+        pos_graph = self.pool(pos, data.batch) # (n, d) -> (batch_size, d)
 
-        out = self.lin_pred(h_graph) # (batch_size, d) -> (batch_size, 1)
+        h_pos_graph = h_graph + self.interaction(torch.cat([h_graph, pos_graph], dim=1))  # res unit
+
+        out = self.lin_pred(h_pos_graph) # (batch_size, d) -> (batch_size, 1)
 
         return out.view(-1)
+
+
+def gaussian_rbf(inputs: torch.Tensor, offsets: torch.Tensor, widths: torch.Tensor):
+    """
+    copied from schnetpack repo:
+    https://github.com/atomistic-machine-learning/schnetpack/blob/eae77dcb47a75b96f6cf8d768108eabb7f8d47b9/src/schnetpack/nn/radial.py#L11C1-L15C13
+    """
+    coeff = -0.5 / torch.pow(widths, 2)
+    diff = inputs[..., None] - offsets
+    y = torch.exp(coeff * torch.pow(diff, 2))
+    return y
+
+class GaussianRBF(Module):
+    r"""Gaussian radial basis functions."""
+
+    def __init__(
+        self, n_rbf: int, cutoff: float, start: float = 0.0, trainable: bool = False
+    ):
+        """
+        copied from schnetpack repo:
+        https://github.com/atomistic-machine-learning/schnetpack/blob/eae77dcb47a75b96f6cf8d768108eabb7f8d47b9/src/schnetpack/nn/radial.py#L11C1-L15C13
+
+        Args:
+            n_rbf: total number of Gaussian functions, :math:`N_g`.
+            cutoff: center of last Gaussian function, :math:`\mu_{N_g}`
+            start: center of first Gaussian function, :math:`\mu_0`.
+            trainable: If True, widths and offset of Gaussian functions
+                are adjusted during training process.
+        """
+        super(GaussianRBF, self).__init__()
+        self.n_rbf = n_rbf
+
+        # compute offset and width of Gaussian functions
+        offset = torch.linspace(start, cutoff, n_rbf)
+        widths = torch.FloatTensor(
+            torch.abs(offset[1] - offset[0]) * torch.ones_like(offset)
+        )
+        if trainable:
+            self.widths = Parameter(widths)
+            self.offsets = Parameter(offset)
+        else:
+            self.register_buffer("widths", widths)
+            self.register_buffer("offsets", offset)
+
+    def forward(self, inputs: torch.Tensor):
+        return gaussian_rbf(inputs, self.offsets, self.widths)
 
 
 def random_orthogonal_matrix(dim=3):
@@ -283,6 +352,43 @@ def main():
 
     # Rotation and translation invariance unit test for MPNN layer
     print(f"Is {type(layer).__name__} rotation and translation equivariant? --> {rot_trans_equivariance_unit_test(layer, dataloader)}!")
+
+    # train model
+    train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
+    val_loader = DataLoader(val_dataset, batch_size=32, shuffle=False)
+    test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
+
+    model = FinalMPNNModel(num_layers=4, emb_dim=64, in_dim=11, edge_dim=4, coord_dim=3, out_dim=1)
+
+    model_name = type(model).__name__
+    best_val_error, test_error, train_time, perf_per_epoch = run_experiment(
+        model,
+        model_name,  # "MPNN w/ Features and Coordinates (Invariant Layers)",
+        train_loader,
+        val_loader,
+        test_loader,
+        n_epochs=100
+    )
+
+    RESULTS = {}
+    DF_RESULTS = pd.DataFrame(columns=["Test MAE", "Val MAE", "Epoch", "Model"])
+
+    RESULTS[model_name] = (best_val_error, test_error, train_time)
+    df_temp = pd.DataFrame(perf_per_epoch, columns=["Test MAE", "Val MAE", "Epoch", "Model"])
+    DF_RESULTS = pd.concat((DF_RESULTS, df_temp), ignore_index=True)
+
+    # print(RESULTS)
+
+    sns.set_style('darkgrid')
+
+    fig, ax = plt.subplots()
+    p = sns.lineplot(x="Epoch", y="Val MAE", hue="Model", data=DF_RESULTS)
+    p.set(ylim=(0, 2))
+
+    fig, ax = plt.subplots()
+    p = sns.lineplot(x="Epoch", y="Test MAE", hue="Model", data=DF_RESULTS)
+    p.set(ylim=(0, 1))
+
 
     pass
 
