@@ -150,7 +150,7 @@ class EquivariantMPNNLayer(MessagePassing):
         msg_h = self.mlp_msg_invariant_1(msg_h_input)
 
         # interaction between position and embeddings
-        dist_rbf = self.radial_basis(dist)
+        dist_rbf = self.radial_basis(dist.squeeze())
         dist_embedding = self.mlp_interaction_dist_embedding(dist_rbf)
 
         # enrich embedding by distance embedding
