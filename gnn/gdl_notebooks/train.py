@@ -12,7 +12,10 @@ def train(model, train_loader, optimizer, device, loss_fn=F.mse_loss):
     for data in train_loader:
         data = data.to(device)
         optimizer.zero_grad()
-        y_pred = model(data)
+        if model._get_name() in ['SchNet']:  # PyG models
+            y_pred = model(data.z, data.pos, data.batch)
+        else:  # my models
+            y_pred = model(data)
         loss = loss_fn(y_pred, data.y)
         loss.backward()
         loss_all += loss.item() * data.num_graphs
@@ -27,7 +30,10 @@ def eval(model, loader, device, std):
     for data in loader:
         data = data.to(device)
         with torch.no_grad():
-            y_pred = model(data)
+            if model._get_name() in ['SchNet']:  # PyG models
+                y_pred = model(data.z, data.pos, data.batch)
+            else:  # my models
+                y_pred = model(data)
             # Mean Absolute Error using std (computed when preparing data)
             error += (y_pred * std - data.y * std).abs().sum().item()
     return error / len(loader.dataset)

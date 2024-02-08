@@ -23,6 +23,7 @@ classifiers = [
 dependencies = [
     "torch-scatter",
     "torch-sparse",
+    "torch-cluster",
     "torch-geometric",
     "networkx",
     "seaborn",
