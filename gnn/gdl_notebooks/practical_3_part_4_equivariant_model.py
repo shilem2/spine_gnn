@@ -40,7 +40,10 @@ class EquivariantMPNNLayer(MessagePassing):
         self.edge_dim = edge_dim
         self.dist_dim = dist_dim
         self.coord_dim = coord_dim
-        # self.radial_basis = GaussianRBF(n_rbf=20, cutoff=5)
+
+        # expand Euclidean distance dimension using radial basis functions, similar to SchNet
+        self.n_rbf = 20
+        self.radial_basis = GaussianRBF(n_rbf=self.n_rbf, cutoff=5)
 
         # ============ YOUR CODE HERE ==============
         # Define the MLPs constituting your new layer.
@@ -53,7 +56,7 @@ class EquivariantMPNNLayer(MessagePassing):
         # ===========================================
 
         # input: h_i, h_j node embeddings, edge embeddings
-        self.mlp_msg_invariant = Sequential(
+        self.mlp_msg_invariant_1 = Sequential(
             Linear(2*emb_dim + edge_dim + dist_dim, emb_dim), BatchNorm1d(emb_dim), ReLU(),
             Linear(emb_dim, emb_dim), BatchNorm1d(emb_dim), ReLU()
           )
@@ -61,7 +64,19 @@ class EquivariantMPNNLayer(MessagePassing):
         # input: pos_j - pos_i (3d vector)
         self.mlp_msg_equivariant = Sequential(
             Linear(coord_dim, coord_dim), BatchNorm1d(coord_dim), ReLU(),
-            Linear(coord_dim, coord_dim), BatchNorm1d(coord_dim), ReLU()
+            Linear(coord_dim, coord_dim), BatchNorm1d(coord_dim)
+          )
+
+        # expand dist (scalar) to a vector using rbf, expand that vector to a dist embedding
+        self.mlp_interaction_dist_embedding = Sequential(
+            Linear(self.n_rbf, emb_dim), BatchNorm1d(emb_dim), ReLU(),
+            Linear(emb_dim, emb_dim), BatchNorm1d(emb_dim), ReLU()
+          )
+
+        # interaction between node (and edge), distance and position embedding
+        self.mlp_msg_invariant_2 = Sequential(
+            Linear(emb_dim + coord_dim, emb_dim), BatchNorm1d(emb_dim), ReLU(),
+            Linear(emb_dim, emb_dim), BatchNorm1d(emb_dim), ReLU(),
           )
 
         # input: h_i (current embedding), aggregated invariant message
@@ -124,15 +139,28 @@ class EquivariantMPNNLayer(MessagePassing):
 
     def message(self, h_i, h_j, pos_i, pos_j, edge_attr):
 
+        # position embedding
         poss_diff = pos_j - pos_i  # vector from i to j, equivariant to rotation
         dist = torch.linalg.norm(poss_diff, dim=1, keepdim=True)
         msg_pos_input = poss_diff / dist
         msg_pos = self.mlp_msg_equivariant(msg_pos_input)
 
+        # node and edge embedding
         msg_h_input = torch.cat([h_i, h_j, edge_attr, dist], dim=-1)
-        msg_h = self.mlp_msg_invariant(msg_h_input)
+        msg_h = self.mlp_msg_invariant_1(msg_h_input)
 
-        return msg_h, msg_pos
+        # interaction between position and embeddings
+        dist_rbf = self.radial_basis(dist)
+        dist_embedding = self.mlp_interaction_dist_embedding(dist_rbf)
+
+        # enrich embedding by distance embedding
+        msg_h_pos_input = msg_h * dist_embedding  # element wise multiplication
+        msg_h_pos_input = torch.cat([msg_h_pos_input, msg_pos], dim=1)
+
+        msg_h_with_pos = self.mlp_msg_invariant_2(msg_h_pos_input)
+
+        return msg_h_with_pos, msg_pos
+
 
     def aggregate(self, inputs, index):
 
