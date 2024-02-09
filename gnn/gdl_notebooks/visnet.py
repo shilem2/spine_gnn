@@ -29,7 +29,7 @@ def main():
         train_loader,
         val_loader,
         test_loader,
-        n_epochs=100
+        n_epochs=500
     )
 
     RESULTS = {}
