@@ -1,6 +1,7 @@
 
 from torch_geometric.loader import DataLoader
-from torch_geometric.nn.models import ViSNet
+# from torch_geometric.nn.models import SchNet
+from gnn.gdl_notebooks.schnet_modified import SchNetModified
 from torch_geometric.datasets import QM9
 
 from gnn.gdl_notebooks.utils import get_qm9_data
@@ -20,7 +21,7 @@ def main():
     test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
 
     # model = FinalMPNNModel(num_layers=4, emb_dim=64, in_dim=11, edge_dim=4, coord_dim=3, out_dim=1)
-    model = ViSNet(vertex=True)
+    model = SchNetModified(input_dim=11)
 
     model_name = type(model).__name__
     best_val_error, test_error, train_time, perf_per_epoch = run_experiment(
@@ -29,7 +30,7 @@ def main():
         train_loader,
         val_loader,
         test_loader,
-        n_epochs=500
+        n_epochs=100
     )
 
     RESULTS = {}
@@ -51,12 +52,13 @@ def main():
     p = sns.lineplot(x="Epoch", y="Test MAE", hue="Model", data=DF_RESULTS)
     p.set(ylim=(0, 1))
 
+
     pass
+
 
 
 if __name__ == '__main__':
 
     main()
-    # eval_pretrained()
 
     pass
