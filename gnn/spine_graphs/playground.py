@@ -3,8 +3,6 @@ import numpy as np
 from mid.tests import read_test_data, read_data
 from mid.data import Annotation, plot_annotations
 
-vert_names = Annotation.vert_names
-vert_names_no_L6 = Annotation.vert_names_no_L6
 
 def generate_simple_spine_graph():
 
@@ -18,7 +16,7 @@ def generate_simple_spine_graph():
 
     # ann.plot_annotations()
 
-    graph = generate_spine_graph(ann_dict, graph_type='keypoint')
+    graph = generate_spine_graph(ann_dict, graph_type='endplate')
 
 
     pass
@@ -38,12 +36,51 @@ def get_adjacency_info(ann_dict):
         pass
     pass
 
-def generate_spine_graph(ann_dict, graph_type='keypoint'):
+def generate_spine_graph(ann_dict, graph_type='endplate'):
 
     assert graph_type in ['keypoint', 'endplate', 'vert']
 
     if graph_type == 'keypoint':
         graph = generate_spine_keypoint_graph(ann_dict)
+    elif graph_type == 'endplate':
+        graph = generate_spine_endplate_graph(ann_dict)
+
+    pass
+
+def generate_spine_endplate_graph(ann_dict, display=False):
+
+    edge_index = []
+    node_feature = []
+    node_position = []
+    edge_feature = []
+    node_target = []
+
+    # setup
+    vert_names = list(ann_dict.keys())
+    id2endplate, endplate2id = get_endplate_dict(vert_names)
+    endplate_one_hot = generate_endplate_one_hot()
+    edge_one_hot = generate_edge_one_hot()
+    id2running_index = {id: n for n, id in enumerate(id2endplate.keys())}
+
+    # iterate over endplates and compute of the above - features, indices, etc.
+    for id, endplate in id2endplate.items():
+
+        if (id + 1) in id2endplate:
+            # edge index
+            ei = [[id2running_index[id], id2running_index[id + 1]], [id2running_index[id + 1], id2running_index[id]]]
+            edge_index.extend(ei)
+
+            # edge features
+            edge_id = 0 if endplate.split('_')[0] == id2endplate[id+1].split('_')[0] else 1  # 0 - same vert, 1 - differet vert (disc)
+            ef = [edge_one_hot[edge_id], edge_one_hot[edge_id]]
+            edge_feature.extend(ef)
+
+        # node features
+
+        # node position
+
+
+        pass
 
     pass
 
@@ -89,30 +126,88 @@ def generate_spine_keypoint_graph(ann_dict, display=False):
 
     pass
 
-def get_vert_dict(vert_names):
+def get_global_vert_dict(vert_names=Annotation.vert_names):
 
     id2vert = {id: vert for id, vert in enumerate(vert_names)}
     vert2id = {vert: id for id, vert in id2vert.items()}
 
     return id2vert, vert2id
 
-def get_disc_dict(vert_names):
+def get_global_disc_dict(vert_names=Annotation.vert_names):
 
     id2disc = {n: '{}_{}'.format(vert_names[n], vert_names[n+1]) for n in range(len(vert_names) - 1)}  # assume verts are sorted in ascending order
     disc2id = {disc:  id for id, disc in id2disc.items()}
 
+    return id2disc, disc2id
 
+def get_endplate_dict(vert_names=None, vert_names_global=Annotation.vert_names):
+    """
+    Get dictionary of endplates names and ids, ordered by canonical order of Annotation.vert_names
+    """
 
+    vert_names = vert_names_global if vert_names is None else Annotation.sort_keys_by_vert_names(vert_names)
+
+    id2endplate = {}
+    n = 0
+    for vert in vert_names_global:
+        if vert in vert_names:
+            id2endplate[n] = '{}_upper'.format(vert)
+            id2endplate[n+1] = '{}_lower'.format(vert)
+        n += 2
+
+    endplate2id = {endplate: id for id, endplate in id2endplate.items()}
+
+    return id2endplate, endplate2id
+
+# def get_endplate_dict(vert_names):
+#
+#     vert_names = Annotation.sort_keys_by_vert_names(vert_names)
+#
+#     id2endplate_global = get_global_endplate_dict()
+#
+#     # TODO: continue
+#
+#     return endplate_dict
 
 def get_one_hot(id2data_dict):
+    """
+    Get one-hot row embedding for each item in id2data_dict.
+    """
 
     ids = list(id2data_dict.keys())
     N = len(ids)
     one_hot_matrix = np.identity(N)
-    one_hot_dict = {id: one_hot_matrix[n, :] for n in range(N)}
+    one_hot_dict = {id: one_hot_matrix[n, :] for n, id in enumerate(ids)}
 
     return one_hot_dict
 
+def generate_endplate_one_hot(id2endplate_dict=None):
+
+    # general one_hot_dict, for all possible endplates
+    one_hot_dict = get_one_hot(get_endplate_dict()[0])
+
+    # subset of one_hot_dict, for data found in id2endplate_dict
+    if id2endplate_dict is not None:
+        one_hot_dict = {id: one_hot for id, one_hot in one_hot_dict.items() if id in id2endplate_dict}
+
+    return one_hot_dict
+
+def get_edge_dict():
+
+    id2edge_dict = {0: 'vert',  # between upper and lower endplate of the same vert
+                    1: 'disc',  # between upper and lower endplate of different verts
+                    }
+    edge2id_dict = {edge_type: id for id, edge_type in id2edge_dict.items()}
+
+    return id2edge_dict, edge2id_dict
+
+def generate_edge_one_hot():
+    one_hot_dict = get_one_hot(get_edge_dict()[0])
+    return one_hot_dict
+
+def calculate_endplate_features():
+
+    pass
 
 def get_disk_labels(vert_id2label):
     ids = np.array(sorted(list(vert_id2label.keys())))
