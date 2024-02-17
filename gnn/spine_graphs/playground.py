@@ -3,6 +3,7 @@ import numpy as np
 from mid.tests import read_test_data, read_data
 from mid.data import Annotation, plot_annotations
 
+from gnn.spine_graphs.endplate_graph import EndplateGraph
 
 def generate_simple_spine_graph():
 
@@ -16,24 +17,11 @@ def generate_simple_spine_graph():
 
     # ann.plot_annotations()
 
-    graph = generate_spine_graph(ann_dict, graph_type='endplate')
+    # graph = generate_spine_graph(ann_dict, graph_type='endplate')
+
+    graph = EndplateGraph(ann_dict)
 
 
-    pass
-
-
-def get_adjacency_info(ann_dict):
-
-    i = j = 0
-    edge_indices = []
-    for vert, pos in ann_dict.items():
-        for row in range(pos.shape[0]):
-
-            # connect all the nodes in each vert
-            edge_indices += []
-
-            pass
-        pass
     pass
 
 def generate_spine_graph(ann_dict, graph_type='endplate'):
@@ -205,7 +193,25 @@ def generate_edge_one_hot():
     one_hot_dict = get_one_hot(get_edge_dict()[0])
     return one_hot_dict
 
-def calculate_endplate_features():
+def calculate_endplate_node_features():
+
+    # position
+    # define coordinate system reference
+    # use mm values
+
+    # endplate type (upper / lower)
+
+    # vert type
+
+    pass
+
+def calculate_endplate_edge_features(endplate, id, id2endplate):
+
+    # use calculations from giraph geometric utils
+
+    edge_id = 0 if endplate.split('_')[0] == id2endplate[id + 1].split('_')[
+        0] else 1  # 0 - same vert, 1 - differet vert (disc)
+    ef = [edge_one_hot[edge_id], edge_one_hot[edge_id]]
 
     pass
 
