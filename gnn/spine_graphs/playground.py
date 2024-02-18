@@ -279,10 +279,8 @@ def signed_angle(v1, v2, look=np.array([0, 1]), units="deg"):
 
     Args:
         v1 (np.arraylike): A `(3,)` vector or a `kx3` stack of vectors.
-        v2 (np.arraylike): A vector or stack of vectors with the same shape as
-            `v1`.
-        look (np.arraylike): A `(3,)` vector specifying the normal of the
-            viewing plane.
+        v2 (np.arraylike): A vector or stack of vectors with the same shape as `v1`.
+        look (np.arraylike): A `(3,)` vector specifying the normal of the viewing plane.
         units (str): `'deg'` to return degrees or `'rad'` to return radians.
 
     Returns:

@@ -5,12 +5,16 @@ from torch_geometric.data import Data
 from mid.data import Annotation
 
 from gnn.spine_graphs.utils import get_one_hot_dict
+from gnn.spine_graphs.utils3d import calc_angle_between_vectors
 from gnn.spine_graphs.visualization_utils import gallery
 
 
 class EndplateGraph():
 
-    def __init__(self, ann_dict, display=False):
+    def __init__(self, ann_dict,
+                 endplate_feature_type='ordinal',
+                 target_type='LL',
+                 display=False):
 
         self.ann_dict = self.sort_ann_dict(ann_dict)
         self.vert_names = list(self.ann_dict.keys())
@@ -19,15 +23,15 @@ class EndplateGraph():
         self.running_index2id = {n: id for id, n in self.id2running_index.items()}
         self.set_one_hot_dicts()
         self.calc_edge_indices()
-        self.calc_node_features()
+        self.calc_node_features(feature_type=endplate_feature_type)
         self.calc_node_positions()
         self.calc_edge_features()
-
+        self.calc_target(target_type=target_type)
 
         # TODO:
         # add targets - node / graph ? start with LL?
-        # export to graph to pyg.Data
-        # display graph using networkx
+
+        # calculate geometric features
 
         self.pyg_graph = self.export_to_pyg_data()
 
@@ -43,6 +47,7 @@ class EndplateGraph():
             edge_index=torch.Tensor(self.edge_index),
             edge_attr=torch.Tensor(self.edge_features),
             pos=torch.Tensor(self.node_positions),
+            y=torch.Tensor(self.target)
         )
 
         return data
@@ -85,6 +90,18 @@ class EndplateGraph():
         pass
 
     def calc_edge_indices(self):
+        """
+        Calculate node features.
+
+        Parameters
+        ----------
+        None.
+
+        Returns
+        -------
+        edge_index: ndarray
+            matrix of shape (2, num_edges)
+        """
 
         # iterate over endplates and compute edge indices
         edge_index = []
@@ -100,12 +117,31 @@ class EndplateGraph():
 
         pass
 
-    def calc_node_features(self):
+    def calc_node_features(self, feature_type='ordinal'):
+        """
+        Calculate node features.
+
+        Parameters
+        ----------
+        feature_type : str, optional
+            Node feature type, one of {'one_hot', 'ordinal'}.
+
+        Returns
+        -------
+        node_features: ndarray
+            matrix of shape (num_of_nodes, node_feature_dim)
+        """
+
+        assert feature_type in ['one_hot', 'ordinal']
 
         node_features = []
         for id, endplate in self.id2endplate.items():
 
-            nf = [self.endplate_one_hot_dict[id]]
+            if feature_type == 'one_hot':
+                nf = [self.endplate_one_hot_dict[id]]
+            elif feature_type == 'ordinal':
+                nf = [id]
+
             node_features.extend(nf)
 
             pass
@@ -115,7 +151,6 @@ class EndplateGraph():
         pass
 
     def calc_node_positions(self):
-
         """
         Get endplate position coordinates from ann_dict.
 
@@ -125,6 +160,16 @@ class EndplateGraph():
                                    'lowerVertEnd_x', 'lowerVertEnd_y',  # BR
                                    'lowerVertSt_x', 'lowerVertSt_y',    # BL
                                    ])
+
+        Parameters
+        ----------
+        None.
+
+        Returns
+        -------
+        node_positions: ndarray
+            matrix of shape (num_nodes, 4).
+            Each endplate position is defined by 2 points, 4 values: [x_start, y_start, x_end, y_end].
         """
 
         # calc mean position as coordinate system start
@@ -135,8 +180,13 @@ class EndplateGraph():
         for id, endplate in self.id2endplate.items():
             vert_name, endplate_type = endplate.split('_')
             vert_position = self.ann_dict[vert_name]
-            start_index = 0 if endplate_type == 'upper' else 2
-            endplate_position = vert_position[start_index:start_index+2, :] - pos_mean
+
+            if endplate_type == 'upper':
+                endplate_position = vert_position[0:2, :]
+            elif endplate_type == 'lower':
+                endplate_position = np.vstack([vert_position[3, :], vert_position[2, :]])
+
+            endplate_position -= pos_mean
             node_position = [endplate_position.reshape(1, 4)]
             node_positions.extend(node_position)
 
@@ -147,6 +197,21 @@ class EndplateGraph():
         pass
 
     def calc_edge_features(self):
+        """
+        Calculate edge features.
+        one hot vector indicating if edge connects upper and lower endplates of the same vert,
+        or of different verts (i.e. disc).
+        We assume undirected graph, thus every edge apears twice, e.g. [i, j], [j, i].
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        edge_features: ndarray
+            matrix of shape (num_of_edges, edge_feature_dim)
+        """
 
         edge_feature = []
         for id, endplate in self.id2endplate.items():
@@ -161,6 +226,42 @@ class EndplateGraph():
             pass
 
         self.edge_features = np.asarray(edge_feature)
+
+        pass
+
+    def get_endplate_position(self, endplate):
+
+        id = self.endplate2id.get(endplate, None)
+
+        if id is not None:
+            running_index = self.id2running_index[id]
+            endplate_position = self.node_positions[running_index, :]
+            endplate_start = endplate_position[:2]
+            endplate_end = endplate_position[2:]
+            endplate_vector = endplate_end - endplate_start
+        else:
+            endplate_start = None
+            endplate_end = None
+            endplate_vector = None
+
+        return endplate_start, endplate_end, endplate_vector
+
+
+    def calc_target(self, target_type='LL'):
+
+        assert target_type in ['LL']
+
+        if target_type == 'LL':
+
+            L1_upper_vector = self.get_endplate_position('L1_upper')[2]
+            S1_upper_vector = self.get_endplate_position('S1_upper')[2]
+
+            if (L1_upper_vector is not None) and (S1_upper_vector is not None):
+                target = calc_angle_between_vectors(L1_upper_vector, S1_upper_vector, units='deg').round(2)
+            else:
+                target = None
+
+        self.target = np.asarray(target)
 
         pass
 
