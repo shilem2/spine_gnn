@@ -73,6 +73,10 @@ def gallery(graphs, labels=None, node_emb=None, special_color=False, max_graphs=
       node_emb: num_graphs* [num_nodes x num_ch]
       max_graphs: maximum graphs display
     '''
+
+    if not isinstance(graphs, list):
+        graphs = [graphs]
+
     num_graphs = min(len(graphs), max_graphs)
     ff, axes = plt.subplots(1, num_graphs,
                             figsize=max_fig_size,
@@ -249,6 +253,8 @@ def get_qm9_data():
 
     # Load the QM9 dataset with the transforms defined
     dataset = QM9(path, transform=transform)
+
+    gallery(dataset[0])
 
     # Normalize targets per data sample to mean = 0 and std = 1.
     mean = dataset.data.y.mean(dim=0, keepdim=True)
