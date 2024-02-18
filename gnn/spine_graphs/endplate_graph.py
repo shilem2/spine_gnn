@@ -16,6 +16,7 @@ class EndplateGraph():
         self.vert_names = list(self.ann_dict.keys())
         self.id2endplate, self.endplate2id = self.get_endplate_dict(self.vert_names)  # global id - starting for C1, ending in S1
         self.id2running_index = {id: n for n, id in enumerate(self.id2endplate.keys())}  # local id, where id 0 is the upper most endplate in current spine
+        self.running_index2id = {n: id for id, n in self.id2running_index.items()}
         self.set_one_hot_dicts()
         self.calc_edge_indices()
         self.calc_node_features()
@@ -87,12 +88,11 @@ class EndplateGraph():
 
         # iterate over endplates and compute edge indices
         edge_index = []
-        for id, endplate in self.id2endplate.items():
-
-            if (id + 1) in self.id2endplate:
+        for running_index, id in self.running_index2id.items():
+            if (running_index + 1) in self.running_index2id:
                 # edge index - enter both ways to create undirected graph
-                ei = [[self.id2running_index[id], self.id2running_index[id + 1]],
-                      [self.id2running_index[id + 1], self.id2running_index[id]]]
+                ei = [[running_index, running_index + 1],
+                      [running_index + 1, running_index]]
                 edge_index.extend(ei)
             pass
 
