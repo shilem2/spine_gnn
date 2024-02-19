@@ -19,13 +19,14 @@ def calc_line_point_distance(point_on_line, vector, point):
     return distance, vector_from_line_to_point
 
 
-def calc_point_point_distance(point1, point2, sign=True):
+def calc_point_point_distance(p1, p2, sign=False):
 
-    distance_vector = point2 - point1
+    distance_vector = p2 - p1  # from p1 to p2
     distance = np.linalg.norm(distance_vector)
 
     if sign:
-        distance *= np.sign(distance_vector)
+        # sign is positive if distance_vector points to the right half space
+        distance *= np.sign(np.dot(distance_vector, np.asarray([1, 0])))
 
     return distance, distance_vector
 

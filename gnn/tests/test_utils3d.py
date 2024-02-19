@@ -76,9 +76,38 @@ def test_line_point_distance():
     pass
 
 
+def test_point_point_distance():
+
+    p1 = np.asarray([0, 1])
+    p2 = np.asarray([1, 0])
+
+    distance, distance_vector = calc_point_point_distance(p1, p2)
+
+    assert distance == approx(np.sqrt(2))
+    assert distance_vector == approx(np.array([-1, 1]))
+
+    p1 = np.asarray([-1, -1])
+    p2 = np.asarray([1, 1])
+
+    distance, distance_vector = calc_point_point_distance(p1, p2)
+
+    assert distance == approx(np.sqrt(8))
+    assert distance_vector == approx(np.array([2, 2]))
+
+    p1 = np.asarray([0, 1])
+    p2 = np.asarray([0, 1])
+
+    distance, distance_vector = calc_point_point_distance(p1, p2)
+
+    assert distance == approx(0)
+    assert distance_vector == approx(np.array([0, 0]))
+
+    pass
+
 if __name__ == '__main__':
 
     # test_angle_between_vectors()
-    test_line_point_distance()
+    # test_line_point_distance()
+    test_point_point_distance()
 
     pass
