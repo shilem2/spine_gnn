@@ -24,6 +24,8 @@ def generate_simple_spine_graph():
 
     pass
 
+
+
 def generate_spine_graph(ann_dict, graph_type='endplate'):
 
     assert graph_type in ['keypoint', 'endplate', 'vert']

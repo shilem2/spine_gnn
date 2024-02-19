@@ -28,11 +28,6 @@ class EndplateGraph():
         self.calc_edge_features()
         self.calc_target(target_type=target_type)
 
-        # TODO:
-        # add targets - node / graph ? start with LL?
-
-        # calculate geometric features
-
         self.pyg_graph = self.export_to_pyg_data()
 
         if display:
