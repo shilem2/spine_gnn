@@ -44,3 +44,38 @@ def calc_spondy(upper, lower):
     spondy_signed, spondy_vector = calc_point_point_distance(intersection_point, lower_start, sign=True)      # sign is positive if distance_vector points to the right half space
 
     return spondy_signed, spondy_vector
+
+def calc_disc_height(upper, lower):
+    """
+    calculate disc height.
+    The calculation is done by downloading a perpendicular line from the back of the upper endplate, to the line defined
+    by the lower endplate.
+
+    Parameters
+    ----------
+    upper : ndarray
+        Upper endplate, given as a 4 values array [x_start, y_start, x_end, y_end], where start is the backward part of
+        the endplate, and end is the forward part.
+    lower : ndarray
+        lower endplate, given as a 4 values array [x_start, y_start, x_end, y_end], where start is the backward part of
+        the endplate, and end is the forward part.
+
+    Returns
+    -------
+    height: float
+        Disc height.
+
+    height_vector : ndarray
+        Vector pointing from the perpendicular line and lower endplate intersection point, to the backward part of the
+        upper endplate.
+    """
+
+    upper_start = upper[:2]
+    lower_start = lower[:2]
+    lower_end = lower[2:]
+    lower_vector = lower_end - lower_start
+
+    # calculate distance between upper and lower start points
+    height, height_vector_lower_upper = calc_line_point_distance(lower_start, lower_vector, upper_start)
+
+    return height, height_vector_lower_upper

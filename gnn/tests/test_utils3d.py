@@ -84,7 +84,7 @@ def test_point_point_distance():
     distance, distance_vector = calc_point_point_distance(p1, p2)
 
     assert distance == approx(np.sqrt(2))
-    assert distance_vector == approx(np.array([-1, 1]))
+    assert distance_vector == approx(np.array([1, -1]))
 
     p1 = np.asarray([-1, -1])
     p2 = np.asarray([1, 1])
