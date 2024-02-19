@@ -12,7 +12,8 @@ def calc_line_point_distance(point_on_line, vector, point):
     section 'Vector formulation'
     """
 
-    vector_from_line_to_point = (point - point_on_line) - (point - point_on_line) @ vector
+    vector = vector / np.linalg.norm(vector)  # convert to unit vector
+    vector_from_line_to_point = (point - point_on_line) - np.dot((point - point_on_line), vector) * vector
     distance = np.linalg.norm(vector_from_line_to_point)
 
     return distance, vector_from_line_to_point

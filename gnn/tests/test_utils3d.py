@@ -27,8 +27,58 @@ def test_angle_between_vectors():
     pass
 
 
+def test_line_point_distance():
+
+    point_on_line = np.array([1, 0])
+    vector = np.array([0, 1])
+    point = np.array([0, 1])
+
+    distance, vector_from_line_to_point = calc_line_point_distance(point_on_line, vector, point)
+
+    assert distance == approx(1)
+    assert vector_from_line_to_point == approx(np.array([-1, 0]))
+
+    point_on_line = point
+
+    distance, vector_from_line_to_point = calc_line_point_distance(point_on_line, vector, point)
+
+    assert distance == approx(0)
+    assert vector_from_line_to_point == approx(np.array([0, 0]))
+
+    point_on_line = np.array([0, 0])
+    vector = np.array([1, 1])
+    point = np.array([1, 1])
+
+    distance, vector_from_line_to_point = calc_line_point_distance(point_on_line, vector, point)
+
+    assert distance == approx(0)
+    assert vector_from_line_to_point == approx(np.array([0, 0]))
+
+    point_on_line = np.array([1, 0])
+    vector = np.array([-1, 1])
+    point = np.array([1, 0])
+
+    distance, vector_from_line_to_point = calc_line_point_distance(point_on_line, vector, point)
+
+    assert distance == approx(0)
+    assert vector_from_line_to_point == approx(np.array([0, 0]))
+
+
+    point_on_line = np.array([1, 0])
+    vector = np.array([-1, 1])
+    point = np.array([1, 1])
+
+    distance, vector_from_line_to_point = calc_line_point_distance(point_on_line, vector, point)
+
+    assert distance == approx(np.sqrt(2) / 2)
+    assert vector_from_line_to_point == approx(np.array([0.5, 0.5]))
+
+    pass
+
+
 if __name__ == '__main__':
 
-    test_angle_between_vectors()
+    # test_angle_between_vectors()
+    test_line_point_distance()
 
     pass
