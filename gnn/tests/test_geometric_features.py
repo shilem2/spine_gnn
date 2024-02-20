@@ -1,7 +1,11 @@
 import numpy as np
 from pytest import approx
 
-from gnn.spine_graphs.geometric_features import calc_spondy, calc_disc_height
+from gnn.spine_graphs.geometric_features import calc_spondy, calc_disc_height, calc_lumbar_lordosis_angle
+from gnn.spine_graphs.endplate_graph import EndplateGraph
+
+from mid.data import Annotation
+from mid.tests import read_test_data
 
 
 def test_calc_spondy():
@@ -65,10 +69,31 @@ def test_disc_height():
 
     pass
 
+def test_lumbar_lordosis():
+
+    ann1, ann2, img1, img2, pixel_spacing, units = read_test_data('Maccabi_19359.dat')[0:6]
+
+    ann_dict = ann1.values_dict(order='xy', units='mm', vert_anns=True)
+    keys_sorted = Annotation.sort_keys_by_vert_names(ann_dict.keys())
+    ann_dict = {key: ann_dict[key] for key in keys_sorted}
+
+    # ann = Annotation(ann_dict, pixel_spacing, units)
+    # ann.plot_annotations()
+
+    graph = EndplateGraph(ann_dict, display=True)
+
+    LL_angle, is_lordotic = calc_lumbar_lordosis_angle(graph, units='deg')
+
+    assert LL_angle == approx(23.29)
+    assert is_lordotic == approx(1)
+
+    pass
+
 
 if __name__ == '__main__':
 
     # test_calc_spondy()
-    test_disc_height()
+    # test_disc_height()
+    test_lumbar_lordosis()
 
     pass

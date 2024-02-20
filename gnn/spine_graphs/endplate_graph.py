@@ -6,6 +6,7 @@ from mid.data import Annotation
 
 from gnn.spine_graphs.utils import get_one_hot_dict
 from gnn.spine_graphs.utils3d import calc_angle_between_vectors
+from gnn.spine_graphs.geometric_features import calc_lumbar_lordosis_angle, get_endplate_geometric_data
 from gnn.spine_graphs.visualization_utils import gallery
 
 
@@ -231,9 +232,7 @@ class EndplateGraph():
         if id is not None:
             running_index = self.id2running_index[id]
             endplate_position = self.node_positions[running_index, :]
-            endplate_start = endplate_position[:2]
-            endplate_end = endplate_position[2:]
-            endplate_vector = endplate_end - endplate_start
+            endplate_start, endplate_end, endplate_distance, endplate_vector, endplate_unit_vector = get_endplate_geometric_data(endplate_position)
         else:
             endplate_start = None
             endplate_end = None
@@ -247,14 +246,9 @@ class EndplateGraph():
         assert target_type in ['LL']
 
         if target_type == 'LL':
+            LL_angle, is_lordotic = calc_lumbar_lordosis_angle(self, units='deg')
+            target = LL_angle
 
-            L1_upper_vector = self.get_endplate_position('L1_upper')[2]
-            S1_upper_vector = self.get_endplate_position('S1_upper')[2]
-
-            if (L1_upper_vector is not None) and (S1_upper_vector is not None):
-                target = calc_angle_between_vectors(L1_upper_vector, S1_upper_vector, units='deg').round(2)
-            else:
-                target = None
 
         self.target = np.asarray(target)
 
