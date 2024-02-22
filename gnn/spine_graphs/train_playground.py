@@ -18,6 +18,7 @@ from mid.tests import read_test_data
 from gnn.spine_graphs.endplate_graph import EndplateGraph
 from gnn.spine_graphs.geometric_features import calc_spondy, calc_disc_height, get_endplate_geometric_data, check_if_lordotic
 from gnn.spine_graphs.utils3d import calc_angle_between_vectors
+from gnn.scripts.generate_dataset import generate_endplate_dataset
 
 from scipy.stats import ortho_group
 
@@ -256,18 +257,16 @@ def rot_trans_invariance_unit_test(module, dataloader):
 
 def simple_train():
 
-    ann1, ann2, img1, img2, pixel_spacing, units = read_test_data('Maccabi_19359.dat')[0:6]
+    # ann1, ann2, img1, img2, pixel_spacing, units = read_test_data('Maccabi_19359.dat')[0:6]
+    #
+    # ann_dict = ann1.values_dict(order='xy', units='mm', vert_anns=True)
+    # keys_sorted = Annotation.sort_keys_by_vert_names(ann_dict.keys())
+    # ann_dict = {key: ann_dict[key] for key in keys_sorted}
+    #
+    # graph = EndplateGraph(ann_dict, display=False)
+    # dataset = [graph.pyg_graph]
 
-    ann_dict = ann1.values_dict(order='xy', units='mm', vert_anns=True)
-    keys_sorted = Annotation.sort_keys_by_vert_names(ann_dict.keys())
-    ann_dict = {key: ann_dict[key] for key in keys_sorted}
-
-    # ann = Annotation(ann_dict, pixel_spacing, units)
-    # ann.plot_annotations()
-
-    graph = EndplateGraph(ann_dict, display=False)
-
-    dataset = [graph.pyg_graph]
+    dataset = generate_endplate_dataset(n_max=5, s1_upper_only=False, projection='LT')
 
     # ==========================================
     # test model and layer invariance
@@ -297,7 +296,7 @@ def simple_train():
         train_loader,
         val_loader,
         test_loader,
-        n_epochs=200
+        n_epochs=1000
     )
 
     RESULTS[model_name] = (best_val_error, test_error, train_time)

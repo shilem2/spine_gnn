@@ -54,7 +54,7 @@ class EndplateGraph():
         Get dictionary of endplates names and ids, ordered by canonical order of Annotation.vert_names
         """
 
-        vert_names = vert_names_global if vert_names is None else Annotation.sort_keys_by_vert_names(vert_names)
+        vert_names = vert_names_global if vert_names is None else self.sort_keys_by_vert_names(vert_names)
 
         id2endplate = {}
         n = 0
@@ -69,9 +69,23 @@ class EndplateGraph():
         return id2endplate, endplate2id
 
     def sort_ann_dict(self, ann_dict):
-        keys_sorted = Annotation.sort_keys_by_vert_names(ann_dict.keys())
-        ann_dict = {key: ann_dict[key] for key in keys_sorted}
+        indices_ordered = list(range(len(Annotation.vert_names)))
+        zipped_sorted_ind_vert = list(zip(indices_ordered, Annotation.vert_names))
+        indices = sorted([ind for (ind, key) in zipped_sorted_ind_vert if key in ann_dict.keys()])  # indices of input keys
+        keys_ordered = [Annotation.vert_names[ind] for ind in indices]
+        ann_dict = {key: ann_dict[key] for key in keys_ordered}
         return ann_dict
+
+    def sort_keys_by_vert_names(self, keys):
+        """Sort keys by vertebrae names.
+        """
+        indices_ordered = list(range(len(self.vert_names)))
+        zipped_sorted_ind_vert = list(zip(indices_ordered, self.vert_names))
+        indices = sorted([ind for (ind, key) in zipped_sorted_ind_vert if key in keys])  # indices of input keys
+        keys_ordered = [self.vert_names[ind] for ind in indices]
+
+        return keys_ordered
+
 
     def cast_dict_vals_to_tensors(self, ann_dict):
         ann_dict = {key: torch.Tensor(val) for key, val in ann_dict.items()}
