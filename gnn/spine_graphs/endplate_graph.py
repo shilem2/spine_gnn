@@ -15,9 +15,10 @@ class EndplateGraph():
     def __init__(self, ann_dict,
                  endplate_feature_type='ordinal',
                  target_type='LL',
-                 display=False):
+                 display=False,
+                 ):
 
-        self.ann_dict = self.sort_ann_dict(ann_dict)
+        self.ann_dict = self.cast_dict_vals_to_tensors(self.sort_ann_dict(ann_dict))
         self.vert_names = list(self.ann_dict.keys())
         self.id2endplate, self.endplate2id = self.get_endplate_dict(self.vert_names)  # global id - starting for C1, ending in S1
         self.id2running_index = {id: n for n, id in enumerate(self.id2endplate.keys())}  # local id, where id 0 is the upper most endplate in current spine
@@ -40,7 +41,7 @@ class EndplateGraph():
 
         data = Data(
             x=torch.Tensor(self.node_features),
-            edge_index=torch.Tensor(self.edge_index),
+            edge_index=torch.Tensor(self.edge_index).long(),
             edge_attr=torch.Tensor(self.edge_features),
             pos=torch.Tensor(self.node_positions),
             y=torch.Tensor(self.target)
@@ -70,6 +71,10 @@ class EndplateGraph():
     def sort_ann_dict(self, ann_dict):
         keys_sorted = Annotation.sort_keys_by_vert_names(ann_dict.keys())
         ann_dict = {key: ann_dict[key] for key in keys_sorted}
+        return ann_dict
+
+    def cast_dict_vals_to_tensors(self, ann_dict):
+        ann_dict = {key: torch.Tensor(val) for key, val in ann_dict.items()}
         return ann_dict
 
     def set_one_hot_dicts(self):
@@ -107,9 +112,10 @@ class EndplateGraph():
                 ei = [[running_index, running_index + 1],
                       [running_index + 1, running_index]]
                 edge_index.extend(ei)
+                pass
             pass
 
-        self.edge_index = np.asarray(edge_index).transpose()
+        self.edge_index = torch.Tensor(edge_index).T
 
         pass
 
@@ -142,7 +148,7 @@ class EndplateGraph():
 
             pass
 
-        self.node_features = np.asarray(node_features)
+        self.node_features = torch.Tensor(node_features)[:, None]  # (num_nodes, node_feature_dim)
 
         pass
 
@@ -169,7 +175,7 @@ class EndplateGraph():
         """
 
         # calc mean position as coordinate system start
-        values = np.concatenate([val for key, val in self.ann_dict.items()])  # xy, original units
+        values = torch.concatenate([val for key, val in self.ann_dict.items()])  # xy, original units
         pos_mean = values.mean(axis=0)
 
         node_positions = []
@@ -180,7 +186,7 @@ class EndplateGraph():
             if endplate_type == 'upper':
                 endplate_position = vert_position[0:2, :]
             elif endplate_type == 'lower':
-                endplate_position = np.vstack([vert_position[3, :], vert_position[2, :]])
+                endplate_position = torch.vstack([vert_position[3, :], vert_position[2, :]])
 
             endplate_position -= pos_mean
             node_position = [endplate_position.reshape(1, 4)]
@@ -188,7 +194,7 @@ class EndplateGraph():
 
             pass
 
-        self.node_positions = np.concatenate(node_positions, axis=0)
+        self.node_positions = torch.concatenate(node_positions, axis=0)
 
         pass
 
@@ -210,18 +216,19 @@ class EndplateGraph():
         """
 
         edge_feature = []
-        for id, endplate in self.id2endplate.items():
-
-            if (id + 1) in self.id2endplate:
-                edge_id = 0 if endplate.split('_')[0] == self.id2endplate[id + 1].split('_')[0] else 1  # 0 - same vert, 1 - differet vert (disc)
-                ef = [self.edge_one_hot_dict[edge_id], self.edge_one_hot_dict[edge_id]]  # enter twice = undirected graph
-
-                # TODO: add geometric features calculations: angle, height, spondy
-
+        for running_index, id in self.running_index2id.items():
+            if (running_index + 1) in self.running_index2id:
+                endplate = self.id2endplate[id]
+                endplate_above = self.id2endplate[self.running_index2id[running_index + 1]]  # treat jump in id values for missing L6
+                edge_id = 0 if endplate.split('_')[0] == endplate_above.split('_')[0] else 1  # 0 - same vert, 1 - differet vert (disc)
+                # edge features - enter both ways to create undirected graph
+                ef = [self.edge_one_hot_dict[edge_id],
+                      self.edge_one_hot_dict[edge_id]]
                 edge_feature.extend(ef)
+                pass
             pass
 
-        self.edge_features = np.asarray(edge_feature)
+        self.edge_features = torch.vstack(edge_feature)
 
         pass
 
@@ -231,7 +238,7 @@ class EndplateGraph():
 
         if id is not None:
             running_index = self.id2running_index[id]
-            endplate_position = self.node_positions[running_index, :]
+            endplate_position = self.node_positions[running_index, :][None, :]  # shape (1, 4)
             endplate_start, endplate_end, endplate_distance, endplate_vector, endplate_unit_vector = get_endplate_geometric_data(endplate_position)
         else:
             endplate_start = None
@@ -247,10 +254,10 @@ class EndplateGraph():
 
         if target_type == 'LL':
             LL_angle, is_lordotic = calc_lumbar_lordosis_angle(self, units='deg')
-            target = LL_angle
+            target = LL_angle.squeeze(axis=1)
 
 
-        self.target = np.asarray(target)
+        self.target = torch.Tensor(target)
 
         pass
 

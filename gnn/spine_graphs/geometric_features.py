@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 
 from gnn.spine_graphs.utils3d import calc_line_point_distance, calc_point_point_distance, calc_angle_between_vectors
 
@@ -29,9 +30,9 @@ def calc_spondy(upper, lower):
         lower endplate.
     """
 
-    upper_start = upper[:2]
-    lower_start = lower[:2]
-    lower_end = lower[2:]
+    upper_start = upper[:, :2]
+    lower_start = lower[:, :2]
+    lower_end = lower[:, 2:]
     lower_vector = lower_end - lower_start
 
     # calculate distance between upper and lower start points
@@ -70,9 +71,9 @@ def calc_disc_height(upper, lower):
         upper endplate.
     """
 
-    upper_start = upper[:2]
-    lower_start = lower[:2]
-    lower_end = lower[2:]
+    upper_start = upper[:, :2]
+    lower_start = lower[:, :2]
+    lower_end = lower[:, 2:]
     lower_vector = lower_end - lower_start
 
     # calculate distance between upper and lower start points
@@ -111,7 +112,7 @@ def calc_lumbar_lordosis_angle(graph, units='deg'):
 
     if (L1_upper_vector is not None) and (S1_upper_vector is not None):
 
-        LL_angle = calc_angle_between_vectors(L1_upper_vector, S1_upper_vector, units=units).round(2)
+        LL_angle = calc_angle_between_vectors(L1_upper_vector, S1_upper_vector, units=units).round(decimals=1)
 
         # check if angle is lordotic or kyphotic
         posterior_distance = calc_point_point_distance(L1_upper_start, S1_upper_start)[0]
@@ -154,15 +155,17 @@ def check_if_lordotic(upper, lower):
     # check if angle is lordotic or kyphotic
     posterior_distance = calc_point_point_distance(upper_start, lower_start)[0]
     anterior_distance = calc_point_point_distance(upper_end, lower_end)[0]
-    is_lordotic = 1. if posterior_distance <= anterior_distance else -1.
+    is_lordotic_flag = posterior_distance <= anterior_distance
+    is_lordotic = torch.ones(is_lordotic_flag.shape).fill_(-1)
+    is_lordotic[is_lordotic_flag] = 1.
 
     return is_lordotic
 
 
 def get_endplate_geometric_data(endplate_position):
 
-    start = endplate_position[:2]
-    end = endplate_position[2:]
+    start = endplate_position[:, :2]
+    end = endplate_position[:, 2:]
     distance = calc_point_point_distance(start, end)[0]
     vector = end - start
     unit_vector = vector / distance

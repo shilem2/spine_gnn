@@ -323,15 +323,15 @@ def main():
     print(f"Created dataset splits with {len(train_dataset)} training, {len(val_dataset)} validation, {len(test_dataset)} test samples.")
 
     # Instantiate temporary model, layer, and dataloader for unit testing
-    layer = MPNNLayer(emb_dim=11, edge_dim=4)
-    model = MPNNModel(num_layers=4, emb_dim=64, in_dim=11, edge_dim=4, out_dim=1)
     dataloader = DataLoader(train_dataset, batch_size=1, shuffle=True)
 
-    # Permutation invariance unit test for MPNN model
-    print(f"Is {type(model).__name__} permutation invariant? --> {permutation_invariance_unit_test(model, dataloader)}!")
-
     # Permutation equivariance unit for MPNN layer
+    layer = MPNNLayer(emb_dim=11, edge_dim=4)
     print(f"Is {type(layer).__name__} permutation equivariant? --> {permutation_equivariance_unit_test(layer, dataloader)}!")
+
+    # Permutation invariance unit test for MPNN model
+    model = MPNNModel(num_layers=4, emb_dim=64, in_dim=11, edge_dim=4, out_dim=1)
+    print(f"Is {type(model).__name__} permutation invariant? --> {permutation_invariance_unit_test(model, dataloader)}!")
 
     # --------------
     #  --- train ---

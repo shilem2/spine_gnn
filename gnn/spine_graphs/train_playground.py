@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 
 import torch
 import torch.nn.functional as F
-from torch.nn import Linear, ReLU, BatchNorm1d, Module, Sequential
+from torch.nn import Linear, ReLU, BatchNorm1d, Module, Sequential, Embedding
 
 import torch_geometric
 from torch_geometric.loader import DataLoader
@@ -19,12 +19,14 @@ from gnn.spine_graphs.endplate_graph import EndplateGraph
 from gnn.spine_graphs.geometric_features import calc_spondy, calc_disc_height, get_endplate_geometric_data, check_if_lordotic
 from gnn.spine_graphs.utils3d import calc_angle_between_vectors
 
+from scipy.stats import ortho_group
+
 print("PyTorch version {}".format(torch.__version__))
 print("PyG version {}".format(torch_geometric.__version__))
 
 
 class InvariantEndplateMPNNLayer(MessagePassing):
-    def __init__(self, emb_dim=64, edge_dim=2, aggr='add', geometric_feat_dim=10):
+    def __init__(self, emb_dim=64, edge_dim=2, geometric_feat_dim=10, aggr='add'):
         """Message Passing Neural Network Layer
 
         This layer is invariant to 3D rotations and translations.
@@ -53,6 +55,8 @@ class InvariantEndplateMPNNLayer(MessagePassing):
             Linear(emb_dim, emb_dim), BatchNorm1d(emb_dim), ReLU()
           )
 
+        pass
+
     def forward(self, h, pos, edge_index, edge_attr):
         """
         The forward pass updates node features `h` via one round of message passing.
@@ -66,17 +70,9 @@ class InvariantEndplateMPNNLayer(MessagePassing):
         Returns:
             out: (n, d) - updated node features
         """
-        # ============ YOUR CODE HERE ==============
-        # Notice that the `forward()` function has a new argument
-        # `pos` denoting the initial node coordinates. Your task is
-        # to update the `propagate()` function in order to pass `pos`
-        # to the `message()` function along with the other arguments.
-        #
-        # out = self.propagate(...)
-        # return out
-        # ==========================================
 
         out = self.propagate(edge_index, h=h, pos=pos, edge_attr=edge_attr)
+
         return out
 
     def message(self, h_i, h_j, pos_i, pos_j, edge_attr):
@@ -107,9 +103,9 @@ class InvariantEndplateMPNNLayer(MessagePassing):
         spondy_signed, spondy_vector = calc_spondy(pos_i, pos_j)
         height, height_vector_lower_upper = calc_disc_height(pos_i, pos_j)
 
-        geometric_features = [distance_i, unit_vector_i, distance_j, unit_vector_j, angle, is_lordotic, spondy_signed, height]
+        geometric_features = torch.cat([distance_i, unit_vector_i, distance_j, unit_vector_j, angle, is_lordotic, spondy_signed, height], dim=1)
 
-        msg_features = torch.cat([[h_i, h_j, edge_attr], geometric_features])
+        msg_features = torch.cat([h_i, h_j, edge_attr, geometric_features], dim=1)
         msg = self.mlp_msg(msg_features)
 
         return msg
@@ -168,6 +164,7 @@ class InvariantEndplateMPNNModel(Module):
         # Linear projection for initial node features
         # dim: d_n -> d
         self.lin_in = Linear(in_dim, emb_dim)
+        # self.embedding = Embedding(100, emb_dim, padding_idx=0)
 
         # Stack of invariant MPNN layers
         self.convs = torch.nn.ModuleList()
@@ -190,7 +187,9 @@ class InvariantEndplateMPNNModel(Module):
         Returns:
             out: (batch_size, out_dim) - prediction for each graph
         """
+
         h = self.lin_in(data.x) # (n, d_n) -> (n, d)
+        # h = self.embedding(data.x) # (n, d_n) -> (n, d)
 
         for conv in self.convs:
             h = h + conv(h, data.pos, data.edge_index, data.edge_attr)  # (n, d) -> (n, d)
@@ -202,6 +201,56 @@ class InvariantEndplateMPNNModel(Module):
 
         return out.view(-1)
 
+
+def random_orthogonal_matrix(dim=3):
+  """Helper function to build a random orthogonal matrix of shape (dim, dim)
+  """
+  Q = torch.tensor(ortho_group.rvs(dim=dim)).float()
+  return Q
+
+
+def rot_trans_invariance_unit_test(module, dataloader):
+    """Unit test for checking whether a module (GNN model/layer) is
+    rotation and translation invariant.
+    """
+    it = iter(dataloader)
+    data = next(it)
+
+    # Forward pass on original example
+    # Note: We have written a conditional forward pass so that the same unit
+    #       test can be used for both the GNN model as well as the layer.
+    #       The functionality for layers will be useful subsequently.
+    if isinstance(module, InvariantEndplateMPNNModel):
+        out_1 = module(data)
+    else: # if isinstance(module, MessagePassing):
+        out_1 = module(data.x, data.pos, data.edge_index, data.edge_attr)
+
+    Q = random_orthogonal_matrix(dim=2)
+    t = torch.rand(2)
+    # ============ YOUR CODE HERE ==============
+    # Perform random rotation + translation on data.
+    #
+    # data.pos = ...
+
+    data.pos[:, :2] = data.pos[:, :2] @ Q + t
+    data.pos[:, 2:] = data.pos[:, 2:] @ Q + t
+    # ==========================================
+
+    # Forward pass on rotated + translated example
+    if isinstance(module, InvariantEndplateMPNNModel):
+        out_2 = module(data)
+    else: # if isinstance(module, MessagePassing):
+        out_2 = module(data.x, data.pos, data.edge_index, data.edge_attr)
+
+    # ============ YOUR CODE HERE ==============
+    # Check whether output varies after applying transformations.
+    #
+    # return torch.allclose(..., atol=1e-04)
+    # ==========================================
+
+    is_invariant = torch.allclose(out_1, out_2, atol=1e-04)
+
+    return is_invariant
 
 
 
@@ -216,16 +265,30 @@ def simple_train():
     # ann = Annotation(ann_dict, pixel_spacing, units)
     # ann.plot_annotations()
 
-    graph = EndplateGraph(ann_dict, display=True)
+    graph = EndplateGraph(ann_dict, display=False)
 
     dataset = [graph.pyg_graph]
+
+    # ==========================================
+    # test model and layer invariance
+    dataloader = DataLoader(dataset, batch_size=1, shuffle=True)
+
+    # Rotation and translation invariance unit test for MPNN layer
+    layer = InvariantEndplateMPNNLayer(emb_dim=1, edge_dim=2, geometric_feat_dim=10, aggr='add')
+    print(f"Is {type(layer).__name__} rotation and translation invariant? --> {rot_trans_invariance_unit_test(layer, dataloader)}!")
+
+    # Rotation and translation invariance unit test for MPNN model
+    model = InvariantEndplateMPNNModel(num_layers=5, emb_dim=64, in_dim=1, edge_dim=2, out_dim=1)
+    print(f"Is {type(model).__name__} rotation and translation invariant? --> {rot_trans_invariance_unit_test(model, dataloader)}!")
+    # -------------------------------
+
 
 
     train_loader = DataLoader(dataset, batch_size=32, shuffle=True)
     val_loader = DataLoader(dataset, batch_size=32, shuffle=False)
     test_loader = DataLoader(dataset, batch_size=32, shuffle=False)
 
-    model = InvariantEndplateMPNNModel(num_layers=4, emb_dim=64, in_dim=14, edge_dim=2, out_dim=1)
+    model = InvariantEndplateMPNNModel(num_layers=5, emb_dim=64, in_dim=1, edge_dim=2, out_dim=1)
 
     RESULTS = {}
     DF_RESULTS = pd.DataFrame(columns=["Test MAE", "Val MAE", "Epoch", "Model"])

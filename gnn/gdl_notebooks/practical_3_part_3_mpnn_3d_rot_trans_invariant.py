@@ -228,7 +228,7 @@ class InvariantMPNNLayer(MessagePassing):
         # to update the `propagate()` function in order to pass `pos`
         # to the `message()` function along with the other arguments.
         #
-        # out = self.propagate(...)
+        # out = self...propagate(...)
         # return out
         # ==========================================
 
@@ -380,18 +380,17 @@ def main():
     # layer = ...
     # model = ...
 
-    model = InvariantMPNNModel(num_layers=4, emb_dim=64, in_dim=11, edge_dim=4, out_dim=1)
-    layer = InvariantMPNNLayer(emb_dim=11, edge_dim=4, aggr='add', coord_dim=1)
 
     # ==========================================
     dataloader = DataLoader(train_dataset, batch_size=1, shuffle=True)
 
-    # Rotation and translation invariance unit test for MPNN model
-    print(f"Is {type(model).__name__} rotation and translation invariant? --> {rot_trans_invariance_unit_test(model, dataloader)}!")
-
     # Rotation and translation invariance unit test for MPNN layer
+    layer = InvariantMPNNLayer(emb_dim=11, edge_dim=4, aggr='add', coord_dim=1)
     print(f"Is {type(layer).__name__} rotation and translation invariant? --> {rot_trans_invariance_unit_test(layer, dataloader)}!")
 
+    # Rotation and translation invariance unit test for MPNN model
+    model = InvariantMPNNModel(num_layers=4, emb_dim=64, in_dim=1, edge_dim=4, out_dim=1)
+    print(f"Is {type(model).__name__} rotation and translation invariant? --> {rot_trans_invariance_unit_test(model, dataloader)}!")
 
     # Train invariant model!
 
