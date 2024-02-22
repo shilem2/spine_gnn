@@ -389,7 +389,7 @@ def main():
     print(f"Is {type(layer).__name__} rotation and translation invariant? --> {rot_trans_invariance_unit_test(layer, dataloader)}!")
 
     # Rotation and translation invariance unit test for MPNN model
-    model = InvariantMPNNModel(num_layers=4, emb_dim=64, in_dim=1, edge_dim=4, out_dim=1)
+    model = InvariantMPNNModel(num_layers=4, emb_dim=64, in_dim=11, edge_dim=4, out_dim=1)
     print(f"Is {type(model).__name__} rotation and translation invariant? --> {rot_trans_invariance_unit_test(model, dataloader)}!")
 
     # Train invariant model!

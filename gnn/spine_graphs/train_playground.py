@@ -282,8 +282,6 @@ def simple_train():
     print(f"Is {type(model).__name__} rotation and translation invariant? --> {rot_trans_invariance_unit_test(model, dataloader)}!")
     # -------------------------------
 
-
-
     train_loader = DataLoader(dataset, batch_size=32, shuffle=True)
     val_loader = DataLoader(dataset, batch_size=32, shuffle=False)
     test_loader = DataLoader(dataset, batch_size=32, shuffle=False)
@@ -299,7 +297,7 @@ def simple_train():
         train_loader,
         val_loader,
         test_loader,
-        n_epochs=100
+        n_epochs=200
     )
 
     RESULTS[model_name] = (best_val_error, test_error, train_time)
