@@ -266,7 +266,7 @@ def simple_train():
     # graph = EndplateGraph(ann_dict, display=False)
     # dataset = [graph.pyg_graph]
 
-    dataset = generate_endplate_dataset(n_max=5, s1_upper_only=False, projection='LT')
+    dataset = generate_endplate_dataset(n_max=100, s1_upper_only=False, projection='LT')
 
     # ==========================================
     # test model and layer invariance
@@ -310,11 +310,11 @@ def simple_train():
 
     fig, ax = plt.subplots()
     p = sns.lineplot(x="Epoch", y="Val MAE", hue="Model", data=DF_RESULTS)
-    p.set(ylim=(0, 2))
+    # p.set(ylim=(0, 2))
 
     fig, ax = plt.subplots()
     p = sns.lineplot(x="Epoch", y="Test MAE", hue="Model", data=DF_RESULTS)
-    p.set(ylim=(0, 1))
+    # p.set(ylim=(0, 1))
 
     pass
 

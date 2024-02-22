@@ -1,5 +1,6 @@
 from pathlib import Path
 import pandas as pd
+from tqdm import tqdm
 
 from mid.data import MaccbiDataset
 
@@ -33,22 +34,23 @@ def generate_endplate_dataset(n_max=None, s1_upper_only=False, projection='LT'):
 
     graph_list = []
     n = 0
-    for study_id in study_id_list:
+    for study_id in tqdm(study_id_list, desc='study id'):
 
         study_df = dataset.filter_study_id(study_id, key='dicom_df', projection=projection)
         for index, row in study_df.iterrows():
 
-            ann = dataset.get_ann(study_id=study_id, projection=row['projection'], body_pos=row['bodyPos'], acquired=row['acquired'],
+            try:
+                ann = dataset.get_ann(study_id=study_id, projection=row['projection'], body_pos=row['bodyPos'], acquired=row['acquired'],
                                   relative_file_path=row['relative_file_path'], flipped_anns=row['x_sign'], units='mm', display=False, save_fig_name=None)
 
-            ann_dict = ann.values_dict(order='xy', units='mm', vert_anns=True, s1_upper_only=False)
-            keys_sorted = ann.sort_keys_by_vert_names(ann_dict.keys())
-            ann_dict = {key: ann_dict[key] for key in keys_sorted}
+                ann_dict = ann.values_dict(order='xy', units='mm', vert_anns=True, s1_upper_only=False)
+                keys_sorted = ann.sort_keys_by_vert_names(ann_dict.keys())
+                ann_dict = {key: ann_dict[key] for key in keys_sorted}
 
-            try:
                 graph = EndplateGraph(ann_dict, display=False)
                 graph_list.append(graph.pyg_graph)
                 n += 1
+
             except:
                 pass
 
