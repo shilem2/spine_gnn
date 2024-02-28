@@ -3,7 +3,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 import torch
-from torch.nn import Linear, ReLU, BatchNorm1d, Module, Sequential, Embedding, GELU
+from torch.nn import Linear, ReLU, BatchNorm1d, Module, Sequential, Embedding
 
 import torch_geometric
 from torch_geometric.loader import DataLoader
@@ -40,16 +40,16 @@ class InvariantEndplateMPNNLayer(MessagePassing):
         self.edge_dim = edge_dim
 
         self.mlp_msg = Sequential(
-            Linear(2*emb_dim + edge_dim + geometric_feat_dim, emb_dim), BatchNorm1d(emb_dim), GELU(),
-            Linear(emb_dim, emb_dim), BatchNorm1d(emb_dim), GELU()
+            Linear(2*emb_dim + edge_dim + geometric_feat_dim, emb_dim), BatchNorm1d(emb_dim), ReLU(),
+            Linear(emb_dim, emb_dim), BatchNorm1d(emb_dim), ReLU()
           )
         # ==========================================
 
         # MLP `\phi` for computing updated node features `h_i^{l+1}`
         # dims: 2d -> d
         self.mlp_upd = Sequential(
-            Linear(2*emb_dim, emb_dim), BatchNorm1d(emb_dim), GELU(),
-            Linear(emb_dim, emb_dim), BatchNorm1d(emb_dim), GELU()
+            Linear(2*emb_dim, emb_dim), BatchNorm1d(emb_dim), ReLU(),
+            Linear(emb_dim, emb_dim), BatchNorm1d(emb_dim), ReLU()
           )
 
         pass
@@ -277,11 +277,11 @@ def simple_train():
     print(f"Is {type(model).__name__} rotation and translation invariant? --> {rot_trans_invariance_unit_test(model, dataloader)}!")
     # -------------------------------
 
-    train_loader = DataLoader(dataset, batch_size=16, shuffle=True)
-    val_loader = DataLoader(dataset, batch_size=64, shuffle=False)
-    test_loader = DataLoader(dataset, batch_size=128, shuffle=False)
+    train_loader = DataLoader(dataset[:1000], batch_size=32, shuffle=True)
+    val_loader = DataLoader(dataset[1000:1100], batch_size=32, shuffle=False)
+    test_loader = DataLoader(dataset[1100:1200], batch_size=32, shuffle=False)
 
-    model = InvariantEndplateMPNNModel(num_layers=6, emb_dim=256, in_dim=1, edge_dim=2, out_dim=1)
+    model = InvariantEndplateMPNNModel(num_layers=5, emb_dim=64, in_dim=1, edge_dim=2, out_dim=1)
 
     RESULTS = {}
     DF_RESULTS = pd.DataFrame(columns=["Test MAE", "Val MAE", "Epoch", "Model"])
