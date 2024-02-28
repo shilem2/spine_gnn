@@ -67,11 +67,66 @@ def generate_endplate_dataset(n_max=None, s1_upper_only=False, projection='LT'):
     return graph_list
 
 
+def check_import_timeing():
+    import pandas as pd
+    import seaborn as sns
+    import matplotlib.pyplot as plt
 
+    import torch
+    import torch.nn.functional as F
+    from torch.nn import Linear, ReLU, BatchNorm1d, Module, Sequential, Embedding
+
+    import torch_geometric
+    from torch_geometric.loader import DataLoader
+    from torch_geometric.nn import MessagePassing, global_mean_pool
+    from torch_scatter import scatter
+
+    from gnn.gdl_notebooks.train import run_experiment
+
+    from mid.data import Annotation
+    from mid.tests import read_test_data
+    from gnn.spine_graphs.endplate_graph import EndplateGraph
+    from gnn.spine_graphs.geometric_features import calc_spondy, calc_disc_height, get_endplate_geometric_data, \
+        check_if_lordotic
+    from gnn.spine_graphs.utils3d import calc_angle_between_vectors
+    from gnn.scripts.generate_dataset import generate_endplate_dataset
+
+    from scipy.stats import ortho_group
+
+    print("PyTorch version {}".format(torch.__version__))
+    print("PyG version {}".format(torch_geometric.__version__))
+
+    pass
+
+
+def check_data():
+
+    import torch
+    from torch_geometric.loader import DataLoader
+    from gnn.spine_graphs.train_playground import InvariantEndplateMPNNModel
+
+    # some endplate graphs produces NaNs, here we'll investigate it
+
+    dataset = generate_endplate_dataset(n_max=120, s1_upper_only=False, projection='LT')
+    dataloader = DataLoader(dataset, batch_size=120, shuffle=True)
+
+    model = InvariantEndplateMPNNModel(num_layers=5, emb_dim=64, in_dim=1, edge_dim=2, out_dim=1)
+
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print('\nDevice: {}'.format(device))
+
+    for data in dataloader:
+        data = data.to(device)
+        y_pred = model(data)
+        pass
+
+    pass
 
 
 if __name__ == '__main__':
 
-    generate_endplate_dataset()
+    # generate_endplate_dataset()
+    # check_import_timeing()
+    check_data()
 
     pass

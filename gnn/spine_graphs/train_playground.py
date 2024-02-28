@@ -3,7 +3,6 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 import torch
-import torch.nn.functional as F
 from torch.nn import Linear, ReLU, BatchNorm1d, Module, Sequential, Embedding
 
 import torch_geometric
@@ -13,9 +12,6 @@ from torch_scatter import scatter
 
 from gnn.gdl_notebooks.train import run_experiment
 
-from mid.data import Annotation
-from mid.tests import read_test_data
-from gnn.spine_graphs.endplate_graph import EndplateGraph
 from gnn.spine_graphs.geometric_features import calc_spondy, calc_disc_height, get_endplate_geometric_data, check_if_lordotic
 from gnn.spine_graphs.utils3d import calc_angle_between_vectors
 from gnn.scripts.generate_dataset import generate_endplate_dataset
@@ -266,7 +262,7 @@ def simple_train():
     # graph = EndplateGraph(ann_dict, display=False)
     # dataset = [graph.pyg_graph]
 
-    dataset = generate_endplate_dataset(n_max=100, s1_upper_only=False, projection='LT')
+    dataset = generate_endplate_dataset(n_max=1200, s1_upper_only=False, projection='LT')
 
     # ==========================================
     # test model and layer invariance
