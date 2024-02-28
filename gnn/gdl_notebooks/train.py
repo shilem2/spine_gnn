@@ -60,7 +60,7 @@ def run_experiment(model, model_name, train_loader, val_loader, test_loader, n_e
 
     # LR scheduler which decays LR when validation metric doesn't improve
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode='min', factor=0.9, patience=5, min_lr=0.00001)
+        optimizer, mode='min', factor=0.9, patience=10, min_lr=0.00005)
 
     print("\nStart training:")
     best_val_error = None

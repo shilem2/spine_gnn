@@ -253,16 +253,10 @@ def rot_trans_invariance_unit_test(module, dataloader):
 
 def simple_train():
 
-    # ann1, ann2, img1, img2, pixel_spacing, units = read_test_data('Maccabi_19359.dat')[0:6]
-    #
-    # ann_dict = ann1.values_dict(order='xy', units='mm', vert_anns=True)
-    # keys_sorted = Annotation.sort_keys_by_vert_names(ann_dict.keys())
-    # ann_dict = {key: ann_dict[key] for key in keys_sorted}
-    #
-    # graph = EndplateGraph(ann_dict, display=False)
-    # dataset = [graph.pyg_graph]
+    n_max = 1200
+    n_max = None
 
-    dataset = generate_endplate_dataset(n_max=1200, s1_upper_only=False, projection='LT')
+    dataset = generate_endplate_dataset(n_max=n_max, s1_upper_only=False, projection='LT')
 
     # ==========================================
     # test model and layer invariance
@@ -277,9 +271,9 @@ def simple_train():
     print(f"Is {type(model).__name__} rotation and translation invariant? --> {rot_trans_invariance_unit_test(model, dataloader)}!")
     # -------------------------------
 
-    train_loader = DataLoader(dataset[:1000], batch_size=32, shuffle=True)
-    val_loader = DataLoader(dataset[1000:1100], batch_size=32, shuffle=False)
-    test_loader = DataLoader(dataset[1100:1200], batch_size=32, shuffle=False)
+    train_loader = DataLoader(dataset[800:], batch_size=32, shuffle=True)
+    val_loader = DataLoader(dataset[400:800], batch_size=32, shuffle=False)
+    test_loader = DataLoader(dataset[0:400], batch_size=32, shuffle=False)
 
     model = InvariantEndplateMPNNModel(num_layers=5, emb_dim=64, in_dim=1, edge_dim=2, out_dim=1)
 
@@ -292,7 +286,7 @@ def simple_train():
         train_loader,
         val_loader,
         test_loader,
-        n_epochs=1000
+        n_epochs=500
     )
 
     RESULTS[model_name] = (best_val_error, test_error, train_time)
