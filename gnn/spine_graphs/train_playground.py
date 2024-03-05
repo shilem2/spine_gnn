@@ -134,8 +134,8 @@ class InvariantEndplateMPNNLayer(MessagePassing):
         Returns:
             upd_out: (n, d) - updated node features passed through MLP `\phi`
         """
-        upd_out = torch.cat([h, aggr_out], dim=-1)
-        upd = self.mlp_upd(upd_out)
+        upd_in = torch.cat([h, aggr_out], dim=-1)
+        upd = self.mlp_upd(upd_in)
         return upd
 
     def __repr__(self) -> str:
@@ -253,8 +253,9 @@ def rot_trans_invariance_unit_test(module, dataloader):
 
 def simple_train():
 
-    n_max = 1200
-    n_max = None
+    # n_max = 1200
+    n_max = 100
+    # n_max = None
 
     dataset = generate_endplate_dataset(n_max=n_max, s1_upper_only=False, projection='LT')
 

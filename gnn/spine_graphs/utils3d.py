@@ -41,7 +41,7 @@ def calc_angle_between_vectors(v1, v2, units='deg'):
     # calculate (acute) angle between vectors
     # cos_angle = v1 @ v2.T / (torch.linalg.norm(v1, axis=1) * torch.linalg.norm(v2, axis=1))  # normalized dot product
     cos_angle = (v1 * v2).sum(axis=1, keepdim=True) / (torch.linalg.norm(v1, axis=1, keepdim=True) * torch.linalg.norm(v2, axis=1, keepdim=True))  # normalized dot product
-    angle = torch.arccos(torch.clip(cos_angle, min=-1., max=1.))
+    angle = torch.arccos(torch.clip(cos_angle, min=-1., max=1.))  # clip due to numeric errors
 
     if units == 'deg':
         angle = torch.rad2deg(angle)

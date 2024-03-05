@@ -132,7 +132,7 @@ def check_if_lordotic(upper, lower):
     To test if the angle is lordotic or kyphotic, we assume that the endplate start point is posterior and the endplate
     end point is anterior.
     Then we check which points are closer together - if the posterior start points are closer than the anterior end
-    points, we say the the angle is lordotic, otherwise, way say that it is kyphotic.
+    points, we say that the angle is lordotic, otherwise, way say that it is kyphotic.
 
     Parameters
     ----------
@@ -166,8 +166,7 @@ def get_endplate_geometric_data(endplate_position):
 
     start = endplate_position[:, :2]
     end = endplate_position[:, 2:]
-    distance = calc_point_point_distance(start, end)[0]
-    vector = end - start
+    distance, vector = calc_point_point_distance(start, end)
     unit_vector = vector / distance
 
     return start, end, distance, vector, unit_vector
