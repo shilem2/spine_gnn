@@ -75,7 +75,7 @@ def test_lumbar_lordosis():
     ann1, ann2, img1, img2, pixel_spacing, units = read_test_data('Maccabi_19359.dat')[0:6]
 
     ann_dict = ann1.values_dict(order='xy', units='mm', vert_anns=True)
-    keys_sorted = Annotation.sort_keys_by_vert_names(ann_dict.keys())
+    keys_sorted = ann1.sort_keys_by_vert_names(ann_dict.keys())
     ann_dict = {key: ann_dict[key] for key in keys_sorted}
 
     # ann = Annotation(ann_dict, pixel_spacing, units)

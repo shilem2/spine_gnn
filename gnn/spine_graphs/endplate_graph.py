@@ -49,7 +49,7 @@ class EndplateGraph():
 
         return data
 
-    def get_endplate_dict(self, vert_names=None, vert_names_global=Annotation.vert_names):
+    def get_endplate_dict(self, vert_names=None, vert_names_global=Annotation.vert_names, s1_upper_only=True):
         """
         Get dictionary of endplates names and ids, ordered by canonical order of Annotation.vert_names
         """
@@ -57,12 +57,13 @@ class EndplateGraph():
         vert_names = vert_names_global if vert_names is None else self.sort_keys_by_vert_names(vert_names)
 
         id2endplate = {}
-        n = 0
+        id = 0
         for vert in vert_names_global:
             if vert in vert_names:
-                id2endplate[n] = '{}_upper'.format(vert)
-                id2endplate[n + 1] = '{}_lower'.format(vert)
-            n += 2
+                id2endplate[id] = '{}_upper'.format(vert)
+                if not s1_upper_only or vert != 'S1':  # do not set s1_lower if s1_upper_only is True (using De Morgan rule)
+                    id2endplate[id + 1] = '{}_lower'.format(vert)
+            id += 2  # for each vert, advance id in 2 (for 2 endplates) - even for S1
 
         endplate2id = {endplate: id for id, endplate in id2endplate.items()}
 
