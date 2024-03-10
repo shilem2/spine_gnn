@@ -15,12 +15,13 @@ class EndplateGraph():
     def __init__(self, ann_dict,
                  endplate_feature_type='ordinal',
                  target_type='LL',
+                 s1_upper_only=True,
                  display=False,
                  ):
 
         self.ann_dict = self.cast_dict_vals_to_tensors(self.sort_ann_dict(ann_dict))
         self.vert_names = list(self.ann_dict.keys())
-        self.id2endplate, self.endplate2id = self.get_endplate_dict(self.vert_names)  # global id - starting for C1, ending in S1
+        self.id2endplate, self.endplate2id = self.get_endplate_dict(self.vert_names, s1_upper_only=s1_upper_only)  # global id - starting for C1, ending in S1
         self.id2running_index = {id: n for n, id in enumerate(self.id2endplate.keys())}  # local id, where id 0 is the upper most endplate in current spine
         self.running_index2id = {n: id for id, n in self.id2running_index.items()}
         self.set_one_hot_dicts()

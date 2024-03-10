@@ -1,7 +1,7 @@
 from pytest import approx
 import torch
 
-from gnn.spine_graphs.endplate_graph import EndplateGraph
+from gnn.spine_graphs import EndplateGraph, EndplateDataset
 from gnn.spine_graphs.geometric_features import calc_spondy, calc_disc_height, get_endplate_geometric_data, check_if_lordotic
 from gnn.spine_graphs.utils3d import calc_angle_between_vectors
 from gnn.spine_graphs.utils import seed
@@ -219,10 +219,22 @@ def test_forward_pass_InvariantEndplateMPNNLayer():
     pass
 
 
+def test_load_endplate_dataset():
+
+    dataset = EndplateDataset()
+
+    assert len(dataset) == 4032
+    assert str(dataset[1000]) == 'Data(x=[17, 1], edge_index=[2, 32], edge_attr=[32, 2], y=[1], pos=[17, 4])'
+    assert str(dataset[4000]) == 'Data(x=[13, 1], edge_index=[2, 24], edge_attr=[24, 2], y=[1], pos=[13, 4])'
+
+    pass
+
+
 if __name__ == '__main__':
 
     # test_endplate_graph_init()
     # test_graph_geometric_feature()
-    test_forward_pass_InvariantEndplateMPNNLayer()
+    # test_forward_pass_InvariantEndplateMPNNLayer()
+    test_load_endplate_dataset()
 
     pass

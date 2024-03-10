@@ -4,7 +4,7 @@ from tqdm import tqdm
 
 from mid.data import MaccbiDataset
 
-from gnn.spine_graphs.endplate_graph import EndplateGraph
+from gnn.spine_graphs import EndplateGraph, EndplateDataset
 
 pd.set_option('display.max_columns', None)
 pd.set_option('display.expand_frame_repr', False)
@@ -123,10 +123,21 @@ def check_data():
     pass
 
 
+def generate_pyg_dataset():
+
+    dataset = EndplateDataset()
+
+    dataset[:10]
+
+    pass
+
+
 if __name__ == '__main__':
 
     # generate_endplate_dataset()
     # check_import_timeing()
-    check_data()
+    # check_data()
+    generate_pyg_dataset()
+
 
     pass
