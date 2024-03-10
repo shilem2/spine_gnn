@@ -75,8 +75,8 @@ def generate_endplate_graph_list(data_path, n_max=None, s1_upper_only=False, pro
         for index, row in study_df.iterrows():
 
             try:
-                ann = dataset.get_ann(study_id=study_id, projection=row['projection'], body_pos=row['bodyPos'], acquired=row['acquired'],
-                                  relative_file_path=row['relative_file_path'], flipped_anns=row['x_sign'], units='mm', display=False, save_fig_name=None)
+                ann = dataset.get_ann(study_id=study_id, projection=row['projection'], body_pos=row['bodyPos'], acquired=row['acquired'], file_id=row['file_id'],
+                                      relative_file_path=row['relative_file_path'], flipped_anns=row['x_sign'], units='mm', display=False, save_fig_name=None)
 
                 ann_dict = ann.values_dict(order='xy', units='mm', vert_anns=True, s1_upper_only=False)
                 keys_sorted = ann.sort_keys_by_vert_names(ann_dict.keys())
