@@ -223,9 +223,9 @@ def test_load_endplate_dataset():
 
     dataset = EndplateDataset()
 
-    assert len(dataset) == 4032
-    assert str(dataset[1000]) == 'Data(x=[17, 1], edge_index=[2, 32], edge_attr=[32, 2], y=[1], pos=[17, 4])'
-    assert str(dataset[4000]) == 'Data(x=[13, 1], edge_index=[2, 24], edge_attr=[24, 2], y=[1], pos=[13, 4])'
+    assert len(dataset) == 4033
+    assert str(dataset[1001]) == 'Data(x=[17, 1], edge_index=[2, 32], edge_attr=[32, 2], y=[1], pos=[17, 4])'
+    assert str(dataset[4001]) == 'Data(x=[13, 1], edge_index=[2, 24], edge_attr=[24, 2], y=[1], pos=[13, 4])'
 
     pass
 
